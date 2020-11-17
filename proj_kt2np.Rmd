@@ -1,0 +1,51 @@
+---
+title: "proj1"
+author: "Khoi Tran (kt2np)"
+date: "November 16, 2020"
+output: html_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(readr)
+
+## reading in data
+playerstats <- read.csv(file = 'nba_player_stats.csv', header = TRUE)
+playersalary <- read.csv(file = 'nba_salary.csv', header = TRUE, skip = 1)
+
+## cleaning data
+# player name, team, salaries for 2019-2020 season only
+# drop first column from player salaries
+playersalary <- playersalary[-c(1), c(2, 3, 4, 10, 11)]
+
+# drop first column from player stats
+playerstats <- playerstats[-c(1)]
+
+# change data types for 'playersalary'
+playersalary <- transform(playersalary, 
+                          Player = as.character(Player), 
+                          Tm = as.character(Tm), 
+                          X2019.20 = as.character(X2019.20) %>% parse_number(), 
+                          Signed.Using = as.character(Signed.Using), 
+                          Guaranteed = as.character(Guaranteed) %>% parse_number())
+
+# aggregate player stats for season-long total, to account for mid-season trades
+# aggregate player positions as well, separately
+# use 'head' function to grab instances of players playing multiple positions
+playerstats_agg <- merge(aggregate(playerstats[2:3], by = playerstats['Player'], FUN = head, 1), 
+                         aggregate(playerstats[5:29], by = playerstats['Player'], FUN = sum), 
+                         by = c('Player'))
+
+# aggregate player salary for season-long total, to account for mid-season trades# aggregate on max values for salary and guarantees, per player and per team
+playersalary_agg <- aggregate(playersalary[c(3, 5)], by = list(playersalary$Player, playersalary$Tm), FUN = max)
+
+# aggregate this data frame again, this time by player alone, to find total salary per player of the 2019-2020 season
+playersalary_agg <- aggregate(playersalary_agg[3:4], by = playersalary_agg[1], FUN = sum)
+names(playersalary_agg)[1] <- 'Player'
+
+# merge aggregated 'playerstats' with 'playersalary' on player names
+player_salarystats <- merge(playersalary_agg, 
+                            playerstats_agg, 
+                            by = c('Player'))
+```
