@@ -111,6 +111,7 @@ read_html('https://www.basketball-reference.com/players/j/jamesle01.html') %>% h
 test_url %>% html_node(xpath = '//div[@id="wrap"]//div[@class="uni_holder bbr"]') %>% html_text() %>% str_count(pattern = '\\n\\t\\n')
 
 ## data
+# split on the empty row, create if-then for this, as not all players will have a per-team section of the table
 test_df <- test_url %>% html_nodes('table') %>% html_table() %>% data.frame()
 test_df_per_season <- test_df[1:(which(test_df$Season == '') - 1),]
 test_df_per_team <- test_df[(which(test_df$Season == '') + 1):nrow(test_df),]
