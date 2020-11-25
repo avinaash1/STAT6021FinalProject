@@ -9,6 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 library(readr)
+library(stringi)
 
 ## reading in data
 playerstats <- read.csv(file = 'nba_player_stats.csv', header = TRUE)
@@ -48,4 +49,25 @@ names(playersalary_agg)[1] <- 'Player'
 player_salarystats <- merge(playersalary_agg, 
                             playerstats_agg, 
                             by = c('Player'))
+
+# get url for per-player stats
+player_salarystats$url <- strsplit(player_salarystats$Player, '\\', fixed = TRUE)
+# cleaned player names
+player_salarystats$Player <- sapply(player_salarystats$url, `[[`, 1)
+# player profile url, from basketball-reference.com
+player_salarystats$url <- stri_join('https://www.basketball-reference.com/players/c/', 
+                                    sapply(player_salarystats$url, `[[`, 2), 
+                                    '.html')
+
+## scraping variables
+# if rookie, draft position
+# num years in the league, veteran status if >median num years played
+# num injuries/num injuries per year in NBA
+# num championships won (conf and national)
+# num awards won (MVP, rookie of the year, etc) previously
+
+# readd 'team' variable (final, in season)
+# another variable for number of teams they were on during season (mid-season trades) for interaction variable with 'Team'
+
+## code to spit out new csv for combined dataset
 ```
