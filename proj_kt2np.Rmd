@@ -16,7 +16,9 @@ library(rvest)
 ## reading in data
 playerstats <- read.csv(file = 'nba_player_stats.csv', header = TRUE)
 playersalary <- read.csv(file = 'nba_salary.csv', header = TRUE, skip = 1)
+```
 
+```{r}
 ## cleaning data
 # player name, team, salaries for 2019-2020 season only
 # drop first column from player salaries
