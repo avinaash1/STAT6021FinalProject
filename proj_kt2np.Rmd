@@ -8,8 +8,10 @@ output: html_document
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
-library(readr)
 library(stringi)
+library(stringr)
+library(readr)
+library(rvest)
 
 ## reading in data
 playerstats <- read.csv(file = 'nba_player_stats.csv', header = TRUE)
@@ -50,14 +52,31 @@ player_salarystats <- merge(playersalary_agg,
                             playerstats_agg, 
                             by = c('Player'))
 
-# get url for per-player stats
+## get url for per-player stats
 player_salarystats$url <- strsplit(player_salarystats$Player, '\\', fixed = TRUE)
 # cleaned player names
 player_salarystats$Player <- sapply(player_salarystats$url, `[[`, 1)
-# player profile url, from basketball-reference.com
-player_salarystats$url <- stri_join('https://www.basketball-reference.com/players/c/', 
-                                    sapply(player_salarystats$url, `[[`, 2), 
-                                    '.html')
+# part of player profile url
+player_salarystats$url <- sapply(player_salarystats$url, `[[`, 2)
+# full player profile url, from basketball-reference.com
+player_salarystats$url <- stri_join('https://www.basketball-reference.com/players/', 
+                                    substr(player_salarystats$url, start = 1, stop = 1), '/',
+                                    player_salarystats$url, '.html')
+```
+
+```{r}
+## for loop, scraping data per-player, per-game stats
+for (i in 1:nrow(player_salarystats)) {
+  # scrape table of total player stats
+  player_stats <- read_html(player_salarystats$url[i]) %>% 
+                    html_nodes('table') %>% 
+                    html_table() %>% 
+                    data.frame()
+  
+  ## aggregate per-player totals to account for mid-season trades
+  
+  ## separate table, as it includes summary stats for more veteran players (have been traded)
+}
 
 ## scraping variables
 # if rookie, draft position
@@ -70,4 +89,29 @@ player_salarystats$url <- stri_join('https://www.basketball-reference.com/player
 # another variable for number of teams they were on during season (mid-season trades) for interaction variable with 'Team'
 
 ## code to spit out new csv for combined dataset
+```
+
+```{r}
+##test per-player scraping
+test_url <- read_html('https://www.basketball-reference.com/players/a/arizatr01.html#totals')
+#NBA experience
+test_url %>% html_node(xpath = '//div[@id="wrap"]//div[@id="meta"]/div[@itemscope]/p[contains(., "Experience")]') %>% html_text() %>% str_extract('\\d+') %>% as.numeric()
+#Age
+#process to datetime, find diff w/ today's date
+test_url %>% html_node(xpath = '//div[@id="wrap"]//div[@id="meta"]/div[@itemscope]/p[contains(., "Born")]/span/@data-birth') %>% html_text()
+#Draft Pick
+#'stri_extract_last_regex' picks last number in string
+#30 picks per draft round, calculate draft round off this
+test_url %>% html_node(xpath = '//div[@id="wrap"]//div[@id="meta"]/div[@itemscope]/p[contains(., "Draft")]/a[1]/following-sibling::text()') %>% html_text() %>% stri_extract_last_regex('\\d+') %>% as.numeric()
+#Draft Year
+test_url %>% html_node(xpath = '//div[@id="wrap"]//div[@id="meta"]/div[@itemscope]/p[contains(., "Draft")]/a[2]') %>% html_text() %>% str_extract('\\d+') %>% as.numeric()
+#Num Accolades
+read_html('https://www.basketball-reference.com/players/j/jamesle01.html') %>% html_node(xpath = '//div[@id="wrap"]//ul[@id="bling"]') %>% as.character() %>% str_count(pattern = '</a>')
+#Num Teams Played For
+test_url %>% html_node(xpath = '//div[@id="wrap"]//div[@class="uni_holder bbr"]') %>% html_text() %>% str_count(pattern = '\\n\\t\\n')
+
+## data
+test_df <- test_url %>% html_nodes('table') %>% html_table() %>% data.frame()
+test_df_per_season <- test_df[1:(which(test_df$Season == '') - 1),]
+test_df_per_team <- test_df[(which(test_df$Season == '') + 1):nrow(test_df),]
 ```
