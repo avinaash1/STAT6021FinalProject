@@ -67,72 +67,158 @@ player_salarystats$url <- stri_join('https://www.basketball-reference.com/player
 ```
 
 ```{r}
+# create function for shortening xpaths
+xpath_short <- function(contains, xpath) {
+  if(missing(xpath)) {
+    # if there is no appending xpath
+    xpath_final <- paste('//div[@id="wrap"]//div[@id="meta"]/div[@itemscope]/p[contains(., "', 
+                           contains, 
+                           '")]', 
+                           sep = '')
+  } else {
+    # if there is an appending xpath
+    xpath_final <- paste('//div[@id="wrap"]//div[@id="meta"]/div[@itemscope]/p[contains(., "', 
+                           contains, 
+                           '")]', 
+                           xpath, 
+                           sep = '')
+  }
+  return(xpath_final)
+}
+```
+
+```{r}
+## lists to add variables to data frame with
+new_vars <- c('yrs_exp', 'age_yrs', 
+              'draft_num', 'debut_yr', 
+              'num_accolades', 'num_teams_1920', 
+              'mid_season_trades', 'team', 
+              'num_yrs_current_team', 'num_teams_played', 
+              'injury_yrs')
+player_salarystats[, new_vars] <- NA
+```
+
+```{r}
 ## for loop, scraping data per-player, per-game stats
 for (i in 1:nrow(player_salarystats)) {
-  # scrape table of total player stats
+  ### scrape table of total player stats
+  # split on the empty row, create if-then for this, as not all players will have a per-team section of the table
+  # need to aggregate data, multiply per-game stats by num games played per-season, per-team to recalculate total values
   player_stats <- read_html(player_salarystats$url[i]) %>% 
                     html_nodes('table') %>% 
                     html_table() %>% 
                     data.frame()
   
-  ## aggregate per-player totals to account for mid-season trades
+  ## if statement to separate table, as it includes summary stats for more veteran players (have been traded)
+  ## modify to to account for injury (separate if statement?)
+  # e.g. for 30th player, Ben Simmons ('https://www.basketball-reference.com/players/s/simmobe01.html')
+  if (grepl('injury', player_stats$Tm, fixed = TRUE)) {
+    # set num years injured to number of rows where injury was indicated
+    player_salarystats$injury_yrs[i] <- grepl('injury', player_stats$Tm, fixed = TRUE) %>% 
+                                          sum()
+    # subset table to exclude injury year rows, as it is not cleanly formatted data
+    player_stats <- player_stats[!grepl('injury', player_stats$Tm, fixed = TRUE), ]
+  } else {
+    # set num injured years to zero if there is no row indicating the player missed a season due to injury
+    player_salarystats$injury_yrs[i] = 0
+  }
   
-  ## separate table, as it includes summary stats for more veteran players (have been traded)
+  # set player stats data where applicable to numeric values
+  player_stats[, 6:30] <- sapply(player_stats[, 6:30], as.numeric)
+  
+  if ('' %in% player_stats$Season) {
+    # if there is a blank row in the scraped table, then the player has been traded
+    # there will be a second partition to the table
+    player_stats_per_season <- player_stats[1:(which(player_stats$Season == '') - 1),]
+    
+    # part of the scraped table that does not exist if there is no blank row
+    # player stats by team they have played ondf
+    player_stats_per_team <- player_stats[(which(player_stats$Season == '') + 1):nrow(player_stats),]
+    
+    # cleaning per team df
+    # table scraped is per-game, so multiply certain variables by number of games played
+    player_stats_per_team[-c(1:8, 11, 14, 17, 18, 21)] <- sapply(player_stats_per_team[-c(1:8, 11, 14, 17, 18, 21)] * 
+                                                                 player_stats_per_team$G, round)
+    
+    ## num teams Played For, total
+    ## see: if statement above, set to 1 if never traded
+    player_salarystats$num_teams_played[i] <- nrow(player_stats_per_team)
+    
+  } else {
+    # if there is no blank row in the scraped table, then the player has never been traded
+    player_stats_per_season <- player_stats
+    
+    ## num teams Played For, total
+    ## see: if statement above, set to 1 if never traded
+    player_salarystats$num_teams_played[i] <- 1
+  }
+  
+  # table scraped is per-game, so multiply certain variables by number of games played
+  # multiply everything but 1:6, 11, 14, 17, 18, 21 (all per-game stats) by player_stats_per_season$MP
+  # round everything for totals
+  player_stats_per_season[-c(1:8, 11, 14, 17, 18, 21)] <- sapply(player_stats_per_season[-c(1:8, 11, 14, 17, 18, 21)] * 
+                                                                   player_stats_per_season$G, round)
+  
+  ### assign variables to data frame
+  ### separate player_stats_per_team for just 2019-20 season to create several variables
+  player_stats_1920 <- player_stats_per_season[which(player_stats_per_season$Season == '2019-20'), ]
+  ## num teams Played For in 2019-20 season
+  player_salarystats$num_teams_1920[i] <- player_stats_1920 %>% 
+                                            nrow()
+  ## number of mid-season trades (num teams in 2019-20 - 1)
+  # untraded players will have 0
+  player_salarystats$mid_season_trades[i] <- player_stats_1920 %>% 
+                                              nrow() - 1
+  ## final team (for 'Team' stat in aggr df)
+  player_salarystats$team[i] <- tail(player_stats_1920$Tm, n = 1)
+  # num yrs played with current team
+  # will be '1' if mid-season traded
+  player_salarystats$num_yrs_current_team[i] <- sum(player_stats_per_season$Tm == team)
+  
+  ## read_html() per player url
+  player_url <- read_html(player_salarystats$url[i])
+  ## NBA experience
+  player_salarystats$yrs_exp[i] <- player_url %>% 
+                                    html_node(xpath = xpath_short('Experience')) %>% 
+                                    html_text() %>% 
+                                    str_extract('\\d+') %>% 
+                                    as.numeric()
+  ## Age
+  # 365.2422 days per year, use datetime functions
+  player_salarystats$age_yrs[i] <- difftime(Sys.Date(), 
+                                            player_url %>% 
+                                              html_node(xpath = xpath_short('Born', '/span/@data-birth')) %>% 
+                                              html_text(), 
+                                            units = 'days') %>% 
+                                    as.numeric() / 365.2422
+  ## Draft Pick
+  # 'stri_extract_last_regex' picks last number in string
+  # 30 picks per draft round, calculate draft round off this after creating df
+  player_salarystats$draft_num[i] <- player_url %>% 
+                                      html_node(xpath = xpath_short('Draft', '/a[1]/following-sibling::text()')) %>% 
+                                      html_text() %>% 
+                                      stri_extract_last_regex('\\d+') %>% 
+                                      as.numeric()
+  ## Draft Year
+  # 'stri_extract_last_regex' picks last number in string
+  ## replace with 'Debut Year' variable
+  player_salarystats$debut_yr[i] <- player_url %>% 
+                                      html_node(xpath = xpath_short('Debut', '/a')) %>% 
+                                      html_text() %>% 
+                                      stri_extract_last_regex('\\d+') %>% 
+                                      as.numeric()
+  ## Num Accolades
+  player_salarystats$num_accolades[i] <- player_url %>% 
+                                          html_node(xpath = '//div[@id="wrap"]//ul[@id="bling"]') %>% 
+                                          as.character() %>% 
+                                          str_count(pattern = '</a>')
 }
 
-## scraping variables
-# if rookie, draft position
-# num years in the league, veteran status if >median num years played
-# num injuries/num injuries per year in NBA
-# num championships won (conf and national)
-# num awards won (MVP, rookie of the year, etc) previously
-# potential TWitter follower count(?) -> could social media presence affect salary?
-
-# readd 'team' variable (final, in season)
-# another variable for number of teams they were on during season (mid-season trades) for interaction variable with 'Team'
+## replace NAs in draft_num (not all players were drafted) and num_accolades (not all players have accolades) with 0
+player_salarystats[is.na(player_salarystats)] <- 0
 
 ## code to spit out new csv for combined dataset
-```
-
-```{r}
-##test per-player scraping, apply within loop later
-test_url <- read_html('https://www.basketball-reference.com/players/a/arizatr01.html#totals')
-#NBA experience
-test_url %>% html_node(xpath = '//div[@id="wrap"]//div[@id="meta"]/div[@itemscope]/p[contains(., "Experience")]') %>% html_text() %>% str_extract('\\d+') %>% as.numeric()
-#Age
-#process to datetime, find diff w/ today's date
-test_url %>% html_node(xpath = '//div[@id="wrap"]//div[@id="meta"]/div[@itemscope]/p[contains(., "Born")]/span/@data-birth') %>% html_text()
-#Draft Pick
-#'stri_extract_last_regex' picks last number in string
-#30 picks per draft round, calculate draft round off this
-test_url %>% html_node(xpath = '//div[@id="wrap"]//div[@id="meta"]/div[@itemscope]/p[contains(., "Draft")]/a[1]/following-sibling::text()') %>% html_text() %>% stri_extract_last_regex('\\d+') %>% as.numeric()
-#Draft Year
-test_url %>% html_node(xpath = '//div[@id="wrap"]//div[@id="meta"]/div[@itemscope]/p[contains(., "Draft")]/a[2]') %>% html_text() %>% str_extract('\\d+') %>% as.numeric()
-#Num Accolades
-read_html('https://www.basketball-reference.com/players/j/jamesle01.html') %>% html_node(xpath = '//div[@id="wrap"]//ul[@id="bling"]') %>% as.character() %>% str_count(pattern = '</a>')
-#Num Teams Played For
-test_url %>% html_node(xpath = '//div[@id="wrap"]//div[@class="uni_holder bbr"]') %>% html_text() %>% str_count(pattern = '\\n\\t\\n')
-#Twitter profile
-#need TwitteR package, would be interesting(?)
-test_url %>% html_node(xpath = '//div[@id="wrap"]//div[@id="meta"]//a[contains(@href, "twitter.com")]/@href') %>% html_text() #link to twitter profile
-#xpath = '//a[contains(@href, "followers")]/@title' within Twitter profile to grab follower count
-#https://stackoverflow.com/questions/54467746/twitter-api-in-r-follower-count-by-geo
-#https://www.earthdatascience.org/courses/earth-analytics/get-data-using-apis/use-twitter-api-r/
-#https://utstat.toronto.edu/~nathan/teaching/sta4002/Class1/scrapingtwitterinR-NT.html
-#https://github.com/geoffjentry/twitteR
-#https://medium.com/@GalarnykMichael/accessing-data-from-twitter-api-using-r-part1-b387a1c7d3e
-
-## data
-# split on the empty row, create if-then for this, as not all players will have a per-team section of the table
-# need to aggregate data, multiply per-game stats by num games played per-season, per-team to recalculate total values
-test_df <- test_url %>% html_nodes('table') %>% html_table() %>% data.frame()
-test_df_per_season <- test_df[1:(which(test_df$Season == '') - 1),]
-test_df_per_team <- test_df[(which(test_df$Season == '') + 1):nrow(test_df),]
-# multiply everything but 1:6, 11, 14, 17, 18, 21 (all per-game stats) by test_df_per_season$MP and round everything for totals
-test_df_per_season[-c(1:8, 11, 14, 17, 18, 21)] <- sapply(test_df_per_season[-c(1:8, 11, 14, 17, 18, 21)] * test_df_per_season$G, round)
-
-test_df_per_team[-c(1:8, 11, 14, 17, 18, 21)] <- sapply(test_df_per_team[-c(1:8, 11, 14, 17, 18, 21)] * test_df_per_team$G, round)
-
+write.csv(player_salarystats, 'NBA_salary_stats.csv')
 ```
 
 Jordan's notes:
