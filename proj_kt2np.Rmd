@@ -49,3 +49,83 @@ player_salarystats <- merge(playersalary_agg,
                             playerstats_agg, 
                             by = c('Player'))
 ```
+
+Jordan's notes:
+```{r}
+player_salarystats$Pos<-factor(player_salarystats$Pos)
+is.factor(player_salarystats$Pos)
+
+levels(player_salarystats$Pos)
+contrasts(player_salarystats$Pos)
+
+a1<-subset(player_salarystats,Pos=="C")
+a2<-subset(player_salarystats,Pos=="C-PF")
+a3<-subset(player_salarystats,Pos=="PF")
+a4<-subset(player_salarystats,Pos=="PF-C")
+a5<-subset(player_salarystats,Pos=="PF-SF")
+a6<-subset(player_salarystats,Pos=="PG")
+a7<-subset(player_salarystats,Pos=="PG-SG")
+a8<-subset(player_salarystats,Pos=="SF")
+a9<-subset(player_salarystats,Pos=="SF-C")
+a10<-subset(player_salarystats,Pos=="SF-PF")
+a11<-subset(player_salarystats,Pos=="SF-SG")
+a12<-subset(player_salarystats,Pos=="SG")
+a13<-subset(player_salarystats,Pos=="SG-PG")
+a14<-subset(player_salarystats,Pos=="SG-SF")
+
+
+reg1<-lm(Guaranteed~PTS,data=a1)
+reg2<-lm(Guaranteed~PTS,data=a2)
+reg3<-lm(Guaranteed~PTS,data=a3)
+reg4<-lm(Guaranteed~PTS,data=a4)
+reg5<-lm(Guaranteed~PTS,data=a5)
+reg6<-lm(Guaranteed~PTS,data=a6)
+reg7<-lm(Guaranteed~PTS,data=a7)
+reg8<-lm(Guaranteed~PTS,data=a8)
+reg9<-lm(Guaranteed~PTS,data=a9)
+reg10<-lm(Guaranteed~PTS,data=a10)
+reg11<-lm(Guaranteed~PTS,data=a11)
+reg12<-lm(Guaranteed~PTS,data=a12)
+reg13<-lm(Guaranteed~PTS,data=a13)
+reg14<-lm(Guaranteed~PTS,data=a14)
+
+plot(PTS,Guaranteed, main="Guaranteed against PTS, by Manufacturer")
+points(a2$PTS,a2$Guaranteed, pch=2, col="red")
+points(a3$PTS,a3$Guaranteed, pch=3, col="blue")
+points(a4$PTS,a4$Guaranteed, pch=4, col="green")
+points(a5$PTS,a5$Guaranteed, pch=5, col="orange")
+points(a6$PTS,a6$Guaranteed, pch=6, col="purple")
+points(a7$PTS,a7$Guaranteed, pch=7, col="pink")
+points(a8$PTS,a8$Guaranteed, pch=8, col="seagreen2")
+points(a9$PTS,a9$Guaranteed, pch=9, col="salmon3")
+points(a10$PTS,a10$Guaranteed, pch=10, col="royalblue4")
+points(a11$PTS,a11$Guaranteed, pch=11, col="rosybrown4")
+points(a12$PTS,a12$Guaranteed, pch=12, col="skyblue2")
+points(a13$PTS,a13$Guaranteed, pch=13, col="slateblue2")
+points(a14$PTS,a14$Guaranteed, pch=14, col="slategray2")
+
+abline(reg1,lty=1)
+# abline(reg2,lty=2, col="red")
+abline(reg3,lty=3, col="blue")
+abline(reg4,lty=4, col="green")
+abline(reg5,lty=5, col="orange")
+abline(reg6,lty=6, col="purple")
+# abline(reg7,lty=7, col="pink")
+abline(reg8,lty=8, col="seagreen2")
+# abline(reg9,lty=9, col="salmon3")
+abline(reg10,lty=10, col="royalblue4")
+abline(reg11,lty=11, col="rosybrown4")
+abline(reg12,lty=12, col="skyblue2")
+abline(reg13,lty=13, col="slateblue2")
+# abline(reg14,lty=14, col="slategray2")
+```
+
+Positions:
+
+Players can hold multiple positions.
+There are several classes with NA values (replace with 0?)
+
+
+
+
+
