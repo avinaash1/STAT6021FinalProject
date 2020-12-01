@@ -12,7 +12,14 @@ library(stringi)
 library(stringr)
 library(readr)
 library(rvest)
+library(twitteR)
 
+## burner twitter profile
+## used just for scraping data for this project
+setup_twitter_oauth('2PRpIuOuFUMjw6glM5WoYlEpw', 
+                    'inbMp0C9wfAKHYd3Wl5WstDSRDzEwEeqSmWATw9ZiB23uAU5Px', 
+                    '1332888461905448962-Ew4sIQBnhBfSMpZyR4nJgJ5MBXaDAP', 
+                    'nKNXV2Qp8LqZ39ZuLlIEqFdsnX9lfmeVzEiolGZcBuUB4')
 ## reading in data
 playerstats <- read.csv(file = 'nba_player_stats.csv', header = TRUE)
 playersalary <- read.csv(file = 'nba_salary.csv', header = TRUE, skip = 1)
@@ -94,7 +101,7 @@ new_vars <- c('yrs_exp', 'age_yrs',
               'num_accolades', 'num_teams_1920', 
               'mid_season_trades', 'team', 
               'num_yrs_current_team', 'num_teams_played', 
-              'injury_yrs')
+              'injury_yrs', 'twitter_followers')
 player_salarystats[, new_vars] <- NA
 ```
 
@@ -212,10 +219,31 @@ for (i in 1:nrow(player_salarystats)) {
                                           html_node(xpath = '//div[@id="wrap"]//ul[@id="bling"]') %>% 
                                           as.character() %>% 
                                           str_count(pattern = '</a>')
+  
+  ## Twitter profile
+  twitter_profile <- tryCatch(player_url %>% 
+                                html_node(xpath = xpath_short('Twitter', '/a[contains(@href, "twitter.com")]/text()')) %>% 
+                                html_text() %>% 
+                                getUser(), 
+                              error = function(err) NA)
+  
+  
+  ## if statement to handle invalid or nonexistent Twitter profiles
+  ## WARNING: slow and will have lots of red text in your console
+  if (is.na(twitter_profile)) {
+    # if a valid twitter profile cannot be found, set followers = 0
+    player_salarystats$twitter_followers[i] <- 0
+  } else {
+    # if a valid twitter profile can be found, return num followers
+    player_salarystats$twitter_followers[i] <- twitter_profile$followersCount
+  }
 }
 
-## replace NAs in draft_num (not all players were drafted) and num_accolades (not all players have accolades) with 0
+## replace NAs with 0
+# e.g. draft_num (not all players were drafted) and num_accolades (not all players have accolades)
 player_salarystats[is.na(player_salarystats)] <- 0
+
+## set team, position as factor variables
 
 ## code to spit out new csv for combined dataset
 write.csv(player_salarystats, 'NBA_salary_stats.csv')
