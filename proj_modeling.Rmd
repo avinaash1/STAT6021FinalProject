@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
-jh_data<-read.csv()
+jh_data<-read.csv('NBA_salary_stats.csv')
 ```
 
 ```{r}
