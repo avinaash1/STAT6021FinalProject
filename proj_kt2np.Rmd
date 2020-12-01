@@ -13,12 +13,15 @@ library(stringr)
 library(readr)
 library(rvest)
 library(twitteR)
+
 ## burner twitter profile
 ## used just for scraping data for this project
+## choose 'no' when asked to use a local file for token
 setup_twitter_oauth('2PRpIuOuFUMjw6glM5WoYlEpw', 
                     'inbMp0C9wfAKHYd3Wl5WstDSRDzEwEeqSmWATw9ZiB23uAU5Px', 
                     '1332888461905448962-Ew4sIQBnhBfSMpZyR4nJgJ5MBXaDAP', 
                     'nKNXV2Qp8LqZ39ZuLlIEqFdsnX9lfmeVzEiolGZcBuUB4')
+
 ## reading in data
 playerstats <- read.csv(file = 'nba_player_stats.csv', header = TRUE)
 playersalary <- read.csv(file = 'nba_salary.csv', header = TRUE, skip = 1)
@@ -29,8 +32,10 @@ playersalary <- read.csv(file = 'nba_salary.csv', header = TRUE, skip = 1)
 # player name, team, salaries for 2019-2020 season only
 # drop first column from player salaries
 playersalary <- playersalary[-c(1), c(2, 3, 4, 10, 11)]
+
 # drop first column from player stats
 playerstats <- playerstats[-c(1)]
+
 # change data types for 'playersalary'
 playersalary <- transform(playersalary, 
                           Player = as.character(Player), 
@@ -38,21 +43,26 @@ playersalary <- transform(playersalary,
                           X2019.20 = as.character(X2019.20) %>% parse_number(), 
                           Signed.Using = as.character(Signed.Using), 
                           Guaranteed = as.character(Guaranteed) %>% parse_number())
+
 # aggregate player stats for season-long total, to account for mid-season trades
 # aggregate player positions as well, separately
 # use 'head' function to grab instances of players playing multiple positions
 playerstats_agg <- merge(aggregate(playerstats[2:3], by = playerstats['Player'], FUN = head, 1), 
                          aggregate(playerstats[5:29], by = playerstats['Player'], FUN = sum), 
                          by = c('Player'))
+
 # aggregate player salary for season-long total, to account for mid-season trades# aggregate on max values for salary and guarantees, per player and per team
 playersalary_agg <- aggregate(playersalary[c(3, 5)], by = list(playersalary$Player, playersalary$Tm), FUN = max)
+
 # aggregate this data frame again, this time by player alone, to find total salary per player of the 2019-2020 season
 playersalary_agg <- aggregate(playersalary_agg[3:4], by = playersalary_agg[1], FUN = sum)
 names(playersalary_agg)[1] <- 'Player'
+
 # merge aggregated 'playerstats' with 'playersalary' on player names
 player_salarystats <- merge(playersalary_agg, 
                             playerstats_agg, 
                             by = c('Player'))
+
 ## get url for per-player stats
 player_salarystats$url <- strsplit(player_salarystats$Player, '\\', fixed = TRUE)
 # cleaned player names
@@ -172,7 +182,7 @@ for (i in 1:nrow(player_salarystats)) {
   player_salarystats$team[i] <- tail(player_stats_1920$Tm, n = 1)
   # num yrs played with current team
   # will be '1' if mid-season traded
-  player_salarystats$num_yrs_current_team[i] <- sum(player_stats_per_season$Tm == team)
+  player_salarystats$num_yrs_current_team[i] <- sum(player_stats_per_season$Tm == player_salarystats$team[i])
   
   ## read_html() per player url
   player_url <- read_html(player_salarystats$url[i])
@@ -230,14 +240,16 @@ for (i in 1:nrow(player_salarystats)) {
     player_salarystats$twitter_followers[i] <- twitter_profile$followersCount
   }
 }
+
 ## replace NAs with 0
 # e.g. draft_num (not all players were drafted) and num_accolades (not all players have accolades)
 player_salarystats[is.na(player_salarystats)] <- 0
+
 ## set team, position as factor variables
+
 ## code to spit out new csv for combined dataset
 write.csv(player_salarystats, 'NBA_salary_stats.csv')
 ```
-
 
 ```{r}
 # exploratory data analysis
