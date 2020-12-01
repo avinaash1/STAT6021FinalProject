@@ -16,6 +16,7 @@ library(twitteR)
 
 ## burner twitter profile
 ## used just for scraping data for this project
+## choose 'no' when asked to use a local file for token
 setup_twitter_oauth('2PRpIuOuFUMjw6glM5WoYlEpw', 
                     'inbMp0C9wfAKHYd3Wl5WstDSRDzEwEeqSmWATw9ZiB23uAU5Px', 
                     '1332888461905448962-Ew4sIQBnhBfSMpZyR4nJgJ5MBXaDAP', 
