@@ -109,7 +109,8 @@ player_salarystats[, new_vars] <- NA
 
 ```{r}
 ## for loop, scraping data per-player, per-game stats
-for (i in 1:nrow(player_salarystats)) {
+#for (i in 1:nrow(player_salarystats)) {
+for (i in 1:2) {
   ### scrape table of total player stats
   # split on the empty row, create if-then for this, as not all players will have a per-team section of the table
   # need to aggregate data, multiply per-game stats by num games played per-season, per-team to recalculate total values
@@ -240,14 +241,21 @@ for (i in 1:nrow(player_salarystats)) {
     player_salarystats$twitter_followers[i] <- twitter_profile$followersCount
   }
 }
+```
 
+```{r}
 ## replace NAs with 0
 # e.g. draft_num (not all players were drafted) and num_accolades (not all players have accolades)
 player_salarystats[is.na(player_salarystats)] <- 0
 
 ## set team, position as factor variables
+player_salarystats$team <- player_salarystats$team %>% 
+                            as.factor()
+player_salarystats$Pos <- player_salarystats$Pos %>% 
+                            as.factor()
 
 ## code to spit out new csv for combined dataset
-write.csv(player_salarystats, 'NBA_salary_stats.csv')
+write.csv(player_salarystats, 
+          'NBA_salary_stats.csv')
 ```
 
