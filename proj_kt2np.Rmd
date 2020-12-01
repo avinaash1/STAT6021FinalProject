@@ -13,6 +13,13 @@ library(stringr)
 library(readr)
 library(rvest)
 library(twitteR)
+library(corrplot)
+library(ggplot2)
+library(GGally)
+
+# TBD to use
+library(PerformanceAnalytics)
+library(plotly)
 
 ## burner twitter profile
 ## used just for scraping data for this project
@@ -195,7 +202,8 @@ for (i in 1:2) {
                                     as.numeric()
   ## Age
   # 365.2422 days per year, use datetime functions
-  player_salarystats$age_yrs[i] <- difftime(Sys.Date(), 
+  ##note: modify Sys.Date(), replace with end date of 2020 season (Oct 11, 2020##
+  player_salarystats$age_yrs[i] <- difftime('2020-10-11', 
                                             player_url %>% 
                                               html_node(xpath = xpath_short('Born', '/span/@data-birth')) %>% 
                                               html_text(), 
@@ -244,6 +252,7 @@ for (i in 1:2) {
 ```
 
 ```{r}
+### additional cleaning before exporting to .csv
 ## replace NAs with 0
 # e.g. draft_num (not all players were drafted) and num_accolades (not all players have accolades)
 player_salarystats[is.na(player_salarystats)] <- 0
@@ -254,8 +263,13 @@ player_salarystats$team <- player_salarystats$team %>%
 player_salarystats$Pos <- player_salarystats$Pos %>% 
                             as.factor()
 
-## code to spit out new csv for combined dataset
+## drop first Age variable
+
+## drop accuracy stats (e.g. 3-point percentage, this can be recalculated later)
+
+## rename variables for clarity
+
+## code to output new csv for combined dataset
 write.csv(player_salarystats, 
           'NBA_salary_stats.csv')
 ```
-
