@@ -59,17 +59,9 @@ for (c in names(high_cor)) {
 regnull <- lm(jh_data$X2019.20~1, data=jh_data)
 
 ##model with all predictors
-regfull <- lm(jh_data$X2019.20~., data=jh_data)
+regfull <- lm(X2019.20~.-Player-Guaranteed-Age-url-team, data=jh_data)
 
 step_reg <- step(regnull, scope=list(lower=regnull, upper=regfull), direction="both")
-```
-
-```{r}
-# Initial Model
-```
-
-```{r}
-# diagnostis, transformations
 ```
 
 ```{r}
