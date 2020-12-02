@@ -10,15 +10,58 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
-jh_data<-read.csv('NBA_salary_stats.csv')
+library(corrplot)
+library(GGally)
+library(PerformanceAnalytics)
+library(plotly)
 ```
 
-```{r}
-# exploratory data analysis
-```
 
 ```{r}
+# Jordan
+
+# save the data seperately
+jh_data <- read.csv(file = 'NBA_salary_stats.csv', row.names = 1, header = TRUE)
+
+# Correlation plot (Khoi's code)
+corrplot(cor(jh_data[, -c(1, 4, 31, 39)], 
+        use = 'complete.obs'), 
+        method = 'circle', 
+        type = 'upper')
+
+# Just correlation of all vars with y
+correlations<-cor(jh_data[, -c(1,3,4, 5, 31, 39)])[ ,1]
+
+# save the highly correlated variables (above .5 is my threshold)
+high_cor <- Filter(function(x) x>.5,correlations)
+
+# remove the y variable
+high_cor<-high_cor[2:length(high_cor)]
+
+# Loop through all highly correlated vars to get regressions and plots
+for (c in names(high_cor)) {
+  # get the model for each highly correlated predictor
+  l<-lm(jh_data$X2019.20~jh_data[[c]])
+  
+  # plot the model with the regression line
+  plot(jh_data$X2019.20~jh_data[[c]], main=c)
+  abline(l,col='red')
+}
+```
+
+
+```{r}
+# Jordan
 # automated search procedures
+
+# !! Do we want to split the data and do crosswise regression?
+##intercept only model
+regnull <- lm(jh_data$X2019.20~1, data=jh_data)
+
+##model with all predictors
+regfull <- lm(jh_data$X2019.20~., data=jh_data)
+
+step_reg <- step(regnull, scope=list(lower=regnull, upper=regfull), direction="both")
 ```
 
 ```{r}
@@ -30,7 +73,6 @@ jh_data<-read.csv('NBA_salary_stats.csv')
 ```
 
 ```{r}
-jh_data<-player_salarystats
 jh_data$Pos<-factor(jh_data$Pos)
 is.factor(jh_data$Pos)
 
@@ -99,8 +141,3 @@ abline(reg13,lty=13, col="slateblue2")
 abline(reg14,lty=14, col="slategray2")
 ```
 
-Jordan's notes:
-
-Positions:
-Players can hold multiple positions.
-There are several classes with NA values (replace with 0?)
