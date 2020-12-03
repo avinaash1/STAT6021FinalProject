@@ -63,6 +63,20 @@ regfull <- lm(X2019.20~.-Player-Guaranteed-Age-url-team, data=jh_data)
 
 step_reg <- step(regnull, scope=list(lower=regnull, upper=regfull), direction="both")
 ```
+```{r}
+library(faraway)
+jh_result<-lm(X2019.20 ~ num_accolades + PTS + yrs_exp + num_teams_played + 
+    G + num_teams_1920 + GS + injury_yrs + PF + DRB + AST + TOV, data = jh_data)
+
+summary(jh_result)
+anova(jh_result)
+vif(jh_result)
+```
+
+```{r}
+reduced <- lm(X2019.20 ~ num_accolades + PTS + yrs_exp + num_teams_played + G + num_teams_1920 + GS + injury_yrs + DRB + AST, data = jh_data)
+anova(reduced)
+```
 
 ```{r}
 jh_data$Pos<-factor(jh_data$Pos)
