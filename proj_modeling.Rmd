@@ -46,6 +46,10 @@ for (c in names(high_cor)) {
   # plot the model with the regression line
   plot(jh_data$X2019.20~jh_data[[c]], main=c)
   abline(l,col='red')
+  
+  # residual plots
+  plot(residuals(l))
+  abline(h=0)
 }
 ```
 
