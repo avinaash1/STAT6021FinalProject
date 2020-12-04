@@ -48,11 +48,13 @@ for (c in names(high_cor)) {
   abline(l,col='red')
   
   # residual plots
-  plot(residuals(l))
+  # these residual plots look really good. The only note is that the higher end errors are a little bigger making the center above the clear mass of residuals in most plots.
+  plot(residuals(l), main = c)
   abline(h=0)
 }
-```
 
+# see chap 8 and chap 3
+```
 
 ```{r}
 # Jordan
@@ -68,13 +70,30 @@ regfull <- lm(X2019.20~.-Player-Guaranteed-Age-url-team, data=jh_data)
 step_reg <- step(regnull, scope=list(lower=regnull, upper=regfull), direction="both")
 ```
 ```{r}
+# model evaluation see chapters 5 and 7
 library(faraway)
 jh_result<-lm(X2019.20 ~ num_accolades + PTS + yrs_exp + num_teams_played + 
     G + num_teams_1920 + GS + injury_yrs + PF + DRB + AST + TOV, data = jh_data)
 
 summary(jh_result)
 anova(jh_result)
+#partial f test, if this has p>0.05 we reject null and keep full model.
+anova(reduced,jh_result) 
 vif(jh_result)
+```
+
+```{r}
+library(MASS)
+# Do we need to transform predictor? If lambda=1 is in the confidence interval we do not need a transformation, if 0 is in CI then us ln(y), otherwise use y^lambda (see pg 17 in notes)
+boxcox(jh_result)
+# check distribution of residuals
+plot(residuals(jh_result), main = c)
+abline(h=0,col='red')
+# check normal distribution
+qqnorm(jh_result$residuals)
+qqline(jh_result$residuals, col="red")
+# autocorrelation
+acf(jh_result$residuals, main="ACF of Residuals")
 ```
 
 ```{r}
