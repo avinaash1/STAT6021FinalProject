@@ -5,6 +5,8 @@ date: "November 16, 2020"
 output: html_document
 ---
 
+### STAT 6021 Final Project: Analyzing NBA Salaries
+
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
@@ -24,24 +26,20 @@ library(plotly)
 ## burner twitter profile
 ## used just for scraping data for this project
 ## choose 'no' when asked to use a local file for token
-setup_twitter_oauth('2PRpIuOuFUMjw6glM5WoYlEpw', 
-                    'inbMp0C9wfAKHYd3Wl5WstDSRDzEwEeqSmWATw9ZiB23uAU5Px', 
-                    '1332888461905448962-Ew4sIQBnhBfSMpZyR4nJgJ5MBXaDAP', 
+setup_twitter_oauth('2PRpIuOuFUMjw6glM5WoYlEpw',
+                    'inbMp0C9wfAKHYd3Wl5WstDSRDzEwEeqSmWATw9ZiB23uAU5Px',
+                    '1332888461905448962-Ew4sIQBnhBfSMpZyR4nJgJ5MBXaDAP',
                     'nKNXV2Qp8LqZ39ZuLlIEqFdsnX9lfmeVzEiolGZcBuUB4')
-
-## reading in data
-playerstats <- read.csv(file = 'nba_player_stats.csv', header = TRUE)
-playersalary <- read.csv(file = 'nba_salary.csv', header = TRUE, skip = 1)
 ```
 
 ```{r}
-## cleaning data
+## reading in and cleaning data
 # player name, team, salaries for 2019-2020 season only
 # drop first column from player salaries
-playersalary <- playersalary[-c(1), c(2, 3, 4, 10, 11)]
+playersalary <- read.csv(file = 'nba_salary.csv', header = TRUE, skip = 1)[-c(1), c(2, 3, 4, 10, 11)]
 
 # drop first column from player stats
-playerstats <- playerstats[-c(1)]
+playerstats <- read.csv(file = 'nba_player_stats.csv', header = TRUE)[-c(1)]
 
 # change data types for 'playersalary'
 playersalary <- transform(playersalary, 
@@ -104,20 +102,21 @@ xpath_short <- function(contains, xpath) {
 ```
 
 ```{r}
-## lists to add variables to data frame with
+## list to add variables to data frame
 new_vars <- c('yrs_exp', 'age_yrs', 
               'draft_num', 'debut_yr', 
               'num_accolades', 'num_teams_1920', 
               'mid_season_trades', 'team', 
               'num_yrs_current_team', 'num_teams_played', 
-              'injury_yrs', 'twitter_followers')
+              'injury_yrs', 'twitter_followers', 
+              'NBA_titles', 'all_NBA')
 player_salarystats[, new_vars] <- NA
 ```
 
 ```{r}
 ## for loop, scraping data per-player, per-game stats
-#for (i in 1:nrow(player_salarystats)) {
-for (i in 1:2) {
+## will have lots of NA errors, due to missing elements (not all players were drafted or have Twitter profiles, for example)
+for (i in 1:nrow(player_salarystats)) {
   ### scrape table of total player stats
   # split on the empty row, create if-then for this, as not all players will have a per-team section of the table
   # need to aggregate data, multiply per-game stats by num games played per-season, per-team to recalculate total values
@@ -129,7 +128,7 @@ for (i in 1:2) {
   ## if statement to separate table, as it includes summary stats for more veteran players (have been traded)
   ## modify to to account for injury (separate if statement?)
   # e.g. for 30th player, Ben Simmons ('https://www.basketball-reference.com/players/s/simmobe01.html')
-  if (grepl('injury', player_stats$Tm, fixed = TRUE)) {
+  if (TRUE %in% grepl('injury', player_stats$Tm, fixed = TRUE)) {
     # set num years injured to number of rows where injury was indicated
     player_salarystats$injury_yrs[i] <- grepl('injury', player_stats$Tm, fixed = TRUE) %>% 
                                           sum()
@@ -190,7 +189,7 @@ for (i in 1:2) {
   player_salarystats$team[i] <- tail(player_stats_1920$Tm, n = 1)
   # num yrs played with current team
   # will be '1' if mid-season traded
-  player_salarystats$num_yrs_current_team[i] <- sum(player_stats_per_season$Tm == player_salarystats$team[i])
+  player_salarystats$num_yrs_current_team[i] <- sum(player_stats_per_season$Tm == tail(player_stats_1920$Tm, n = 1))
   
   ## read_html() per player url
   player_url <- read_html(player_salarystats$url[i])
@@ -231,45 +230,139 @@ for (i in 1:2) {
                                           as.character() %>% 
                                           str_count(pattern = '</a>')
   
+  ## NBA titles
+  player_salarystats$NBA_titles[i] <- player_url %>% 
+                                        html_node(xpath = '//div[@id="wrap"]//ul[@id="bling"]//li[contains(., "NBA Champ")]/a') %>% 
+                                        html_text() %>% 
+                                        str_extract('\\d+')
+  
+  ## All-NBA status
+  ## use 'and' statement for xpath, as there's inconsistent formatting; some pages have 'All-Star', others have 'All Star'
+  player_salarystats$all_NBA[i] <- read_html(player_salarystats$url[i]) %>% 
+                                    html_node(xpath = '//div[@id="wrap"]//ul[@id="bling"]//a[contains(., "All") and contains(., "NBA")]') %>% 
+                                    html_text() %>% 
+                                    str_extract('\\d+')
+}
+```
+
+```{r}
+## set Twitter scraping in a different loop to avoid sensitivity re: rate limits
+for (j in 1:nrow(player_salarystats)) {
+  ## read_html() per player url
+  player_url <- read_html(player_salarystats$url[j])
   ## Twitter profile
-  twitter_profile <- tryCatch(player_url %>% 
-                                html_node(xpath = xpath_short('Twitter', '/a[contains(@href, "twitter.com")]/text()')) %>% 
-                                html_text() %>% 
-                                getUser(), 
-                              error = function(err) NA)
-  
-  
+  twitter_profile <- tryCatch(player_url %>%
+                               html_node(xpath = xpath_short('Twitter', '/a[contains(@href, "twitter.com")]/text()')) %>%
+                               html_text() %>%
+                               getUser(),
+                             error = function(err) NA)
+
   ## if statement to handle invalid or nonexistent Twitter profiles
   ## WARNING: slow and will have lots of red text in your console
   if (is.na(twitter_profile)) {
     # if a valid twitter profile cannot be found, set followers = 0
-    player_salarystats$twitter_followers[i] <- 0
+    player_salarystats$twitter_followers[j] <- 0
   } else {
     # if a valid twitter profile can be found, return num followers
-    player_salarystats$twitter_followers[i] <- twitter_profile$followersCount
+    player_salarystats$twitter_followers[j] <- twitter_profile$followersCount
   }
 }
 ```
 
 ```{r}
 ### additional cleaning before exporting to .csv
+NBA_salary_stats <- player_salarystats
+
 ## replace NAs with 0
 # e.g. draft_num (not all players were drafted) and num_accolades (not all players have accolades)
-player_salarystats[is.na(player_salarystats)] <- 0
+NBA_salary_stats[is.na(NBA_salary_stats)] <- 0
 
 ## set team, position as factor variables
-player_salarystats$team <- player_salarystats$team %>% 
+NBA_salary_stats$team <- NBA_salary_stats$team %>% 
                             as.factor()
-player_salarystats$Pos <- player_salarystats$Pos %>% 
+NBA_salary_stats$Pos <- NBA_salary_stats$Pos %>% 
                             as.factor()
+
+## rename actual paid salary variable
+names(player_salarystats)[names(player_salarystats) == 'X2019.20'] <- 'Actual'
 
 ## drop first Age variable
+## age_yrs is a more accurate variable that calculates age as of the end of the 2019-2020 season
+NBA_salary_stats <- subset(NBA_salary_stats, select = -Age)
 
-## drop accuracy stats (e.g. 3-point percentage, this can be recalculated later)
+## create binary categorical variable for whether the player was drafted or not
+NBA_salary_stats$drafted <- ifelse(NBA_salary_stats$draft_num == 0, FALSE, TRUE)
 
-## rename variables for clarity
+## create variable for starting percentage (GS / G)
+NBA_salary_stats$GS. <- NBA_salary_stats$GS / NBA_salary_stats$G
+
+## clean NBA titles and all-NBA status variables
+## if a year is returned (4-digit variable), then they have only won one title or earned all-NBA status once
+## otherwise, the variable indicates the number of times they have earned these things
+NBA_salary_stats$NBA_titles <- ifelse(nchar(NBA_salary_stats$NBA_titles) == 4, 
+                                      1, 
+                                      NBA_salary_stats$NBA_titles) %>% 
+                                  as.numeric()
+NBA_salary_stats$all_NBA <- ifelse(nchar(NBA_salary_stats$all_NBA) == 4, 
+                                     1, 
+                                     NBA_salary_stats$all_NBA) %>% 
+                              as.numeric()
 
 ## code to output new csv for combined dataset
-write.csv(player_salarystats, 
+write.csv(NBA_salary_stats, 
           'NBA_salary_stats.csv')
 ```
+
+---
+
+## A Review of the Variables
+
+# From the [Basketball Reference data](https://www.basketball-reference.com/):
+
+- **Player:** The NBA player's name.
+- **Actual:** The player's actual paid salary for the 2019-2020 NBA season.
+- **Guaranteed:** The player's guaranteed salary for the 2019-2020 NBA season.
+- **Pos:** The player's position played.
+- **G:** Number of games played in the 2019-2020 NBA season.
+- **GS:** Number of games started in the 2019-2020 NBA season.
+- **GS.:** Percentage of games started in the 2019-2020 NBA season.
+- **MP:** Number of minutes played during the 2019-2020 NBA season.
+- **FG:** Field goals scored.
+- **FGA:** Field goals attempted.
+- **FG.:** Field goal percentage (number scored divided by number attempted).
+- **3P:** 3-point field goals scored.
+- **3PA:** 3-point field goals attempted.
+- **3P.:** 3-point field goal percentage (number scored divided by number attempted).
+- **2P:** 2-point field goals scored.
+- **2PA:** 2-point field goals attempted.
+- **2P.:** 2-point field goal percentage (number scored divided by number attempted).
+- **eFG.:** Effective field goal percentage, adjusted for the higher value of a 3-point field goal.
+- **FT:** Free throws scored.
+- **FTA:** Free throws attempted.
+- **FT.:** Free throw percentage (number scored divided by number attempted).
+- **ORB:** Offensive rebounds.
+- **DRB:** Defensive rebounds.
+- **TRB:** Total rebounds (offensive plus defensive).
+- **AST:** Number of assists.
+- **STL:** Number of steals.
+- **BLK:** Number of blocks.
+- **TOV:** Number of turnovers.
+- **PF:** Number of personal fouls.
+- **PTS:** Points scored.
+
+# Recalculated and scraped variables:
+- **yrs_exp:** The number of years the player has played in the NBA.
+- **age_yrs:** The player's age as of the end of the 2019-2020 NBA season.
+- **draft_num:** The player's draft number. Draft round can be calculated by factoring in the fact that there are 30 players drafted per round in the NBA draft. This value is set to zero if the player was not drafted and joined the NBA via other means.
+- **drafted:** A boolean categorical variable to indicate whether the player was drafted or not.
+- **debut_yr:** The year the player played their first NBA game. Generally equates to the year the player was drafted or contracted, but there are a few cases of a player being injured between their draft year and debut year. 
+- **num_accolades:** The number of notable accolades a player has.
+- **NBA_titles:** The number of the NBA titles the player has won.
+- **all_NBA:** The number of times the player has earned all-NBA status.
+- **num_teams_1920:** The number of teams a player has played for during the 2019-2020 season.
+- **mid_season_trades:** The number of times a player was traded to another team during the 2019-2020 season.
+- **team:** The team the player plays for, as of the end of the 2019-2020 season.
+- **num_yrs_current_team:** How long the player has played for their current team. 
+- **num_teams_played:** The number of teams the player has played for throughout the duration of their career.
+- **injury_yrs:** The number of years the player has spent an entire season injured.
+- **twitter_followers:** The number of followers the player has on Twitter. This variable attempts to encapsulate whether a player's popularity (measured by the size of their social media following) has an influence on their salary.
