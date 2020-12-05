@@ -20,17 +20,18 @@ library(plotly)
 ```{r}
 # Jordan
 
-# save the data seperately
+# save the data separately
 jh_data <- read.csv(file = 'NBA_salary_stats.csv', row.names = 1, header = TRUE)
 
 # Correlation plot (Khoi's code)
-corrplot(cor(jh_data[, -c(1, 4, 31, 39)], 
-        use = 'complete.obs'), 
-        method = 'circle', 
+corrplot(cor(jh_data[, -c(1, 3, 4, 30, 38, 45)],
+# corrplot(cor(jh_data[c(2,10)],
+        use = 'complete.obs'),
+        method = 'circle',
         type = 'upper')
 
 # Just correlation of all vars with y
-correlations<-cor(jh_data[, -c(1,3,4, 5, 31, 39)])[ ,1]
+correlations<-cor(jh_data[, -c(1, 3, 4, 30, 38, 45)])[ ,1]
 
 # save the highly correlated variables (above .5 is my threshold)
 high_cor <- Filter(function(x) x>.5,correlations)
@@ -41,10 +42,10 @@ high_cor<-high_cor[2:length(high_cor)]
 # Loop through all highly correlated vars to get regressions and plots
 for (c in names(high_cor)) {
   # get the model for each highly correlated predictor
-  l<-lm(jh_data$X2019.20~jh_data[[c]])
+  l<-lm(jh_data$Actual~jh_data[[c]])
   
   # plot the model with the regression line
-  plot(jh_data$X2019.20~jh_data[[c]], main=c)
+  plot(jh_data$Actual~jh_data[[c]], main=c)
   abline(l,col='red')
   
   # residual plots
@@ -54,6 +55,12 @@ for (c in names(high_cor)) {
 }
 
 # see chap 8 and chap 3
+```
+
+```{r}
+for (c in 1:ncol(jh_data)) {
+  (is.numeric(jh_data[c]))
+  }
 ```
 
 ```{r}
@@ -114,25 +121,56 @@ cor(subset(kt_data, select = c('Actual', 'yrs_exp', 'age_yrs', 'draft_num',
 
 # !! Do we want to split the data and do crosswise regression?
 ##intercept only model
-regnull <- lm(jh_data$X2019.20~1, data=jh_data)
+regnull <- lm(jh_data$Actual~1, data=jh_data)
 
 ##model with all predictors
-regfull <- lm(X2019.20~.-Player-Guaranteed-Age-url-team, data=jh_data)
+regfull <- lm(Actual~.-Player-Guaranteed-url, data=jh_data)
 
-step_reg <- step(regnull, scope=list(lower=regnull, upper=regfull), direction="both")
+# step_reg <- step(regnull, scope=list(lower=regnull, upper=regfull), direction="both")
 ```
+
 ```{r}
 # model evaluation see chapters 5 and 7
 library(faraway)
-jh_result<-lm(X2019.20 ~ num_accolades + PTS + yrs_exp + num_teams_played + 
-    G + num_teams_1920 + GS + injury_yrs + PF + DRB + AST + TOV, data = jh_data)
+jh_result<-lm(Actual ~ num_accolades + PTS + yrs_exp + num_teams_played + 
+    GS. + NBA_titles + num_teams_1920 + PF + DRB + GS + eFG. + 
+    all_NBA, data = jh_data)
 
 summary(jh_result)
 anova(jh_result)
-#partial f test, if this has p>0.05 we reject null and keep full model.
-anova(reduced,jh_result) 
+
 vif(jh_result)
+# multicolinearity appears to be an issue with GS and potentially eFG., num_teams_1920, and GS.
+#correlation between variables?
+
+vcov(jh_result)[,c('GS','eFG.',"num_teams_1920","GS.")]
 ```
+From the VCOV table, looking at rows specifically:
+GS - 
+```{r}
+# let's try dropping GS (highest VIF) and eFG. (also a major one) and see how things change
+jh_result.2<-lm(Actual ~ num_accolades + PTS + yrs_exp + num_teams_played + 
+    GS. + NBA_titles + num_teams_1920 + PF + DRB + 
+    all_NBA, data = jh_data)
+summary(jh_result.2)
+# Adj R2 is about the same
+anova(jh_result.2)
+vif(jh_result.2)
+# much better VIF
+```
+
+```{r}
+#partial f test, if this has p>0.05 we reject null and keep full model.
+# remove all_NBA
+reduced.1 <- lm(Actual~num_accolades + PTS + yrs_exp + num_teams_played + 
+    GS. + NBA_titles + num_teams_1920 + PF + DRB, data = jh_data)
+anova(reduced.1,jh_result.2) 
+summary(reduced.1)
+
+# we fail to reject the null so let's go with the smaller model
+
+```
+
 
 ```{r}
 library(MASS)
@@ -148,10 +186,16 @@ qqline(jh_result$residuals, col="red")
 acf(jh_result$residuals, main="ACF of Residuals")
 ```
 
-```{r}
-reduced <- lm(X2019.20 ~ num_accolades + PTS + yrs_exp + num_teams_played + G + num_teams_1920 + GS + injury_yrs + DRB + AST, data = jh_data)
-anova(reduced)
-```
+Questions:
+1. Is it a problem if we don't have categorical variables?
+2. VIF suggests we have some multicolinearity, do we drop those with high VIF's?
+3. Do we want to error on the side of more predictors (less bias) or fewer predictors (less variance)?
+4. Should we do cross validation?
+5. Should we check AIC/BIC/Press statistic (43)
+6. Test predictive ability?
+7. Should we try to get better linear fits by dealing with outliers?
+8. (partial regression plot, pg. 48, module 8)
+
 
 ```{r}
 jh_data$Pos<-factor(jh_data$Pos)
@@ -191,7 +235,7 @@ reg12<-lm(Guaranteed~PTS,data=a12)
 reg13<-lm(Guaranteed~PTS,data=a13)
 reg14<-lm(Guaranteed~PTS,data=a14)
 
-plot(jh_data$PTS,jh_data$Guaranteed, main="Guaranteed against PTS, by Manufacturer")
+plot(jh_data$PTS,jh_data$Guaranteed, main="Guaranteed against PTS, by Pos")
 points(a2$PTS,a2$Guaranteed, pch=2, col="red")
 points(a3$PTS,a3$Guaranteed, pch=3, col="blue")
 points(a4$PTS,a4$Guaranteed, pch=4, col="green")
@@ -207,18 +251,18 @@ points(a13$PTS,a13$Guaranteed, pch=13, col="slateblue2")
 points(a14$PTS,a14$Guaranteed, pch=14, col="slategray2")
 
 abline(reg1,lty=1)
-abline(reg2,lty=2, col="red")
+# abline(reg2,lty=2, col="red")
 abline(reg3,lty=3, col="blue")
 abline(reg4,lty=4, col="green")
 abline(reg5,lty=5, col="orange")
 abline(reg6,lty=6, col="purple")
-abline(reg7,lty=7, col="pink")
+# abline(reg7,lty=7, col="pink")
 abline(reg8,lty=8, col="seagreen2")
-abline(reg9,lty=9, col="salmon3")
+# abline(reg9,lty=9, col="salmon3")
 abline(reg10,lty=10, col="royalblue4")
-abline(reg11,lty=11, col="rosybrown4")
+# abline(reg11,lty=11, col="rosybrown4")
 abline(reg12,lty=12, col="skyblue2")
 abline(reg13,lty=13, col="slateblue2")
-abline(reg14,lty=14, col="slategray2")
+# abline(reg14,lty=14, col="slategray2")
 ```
 
