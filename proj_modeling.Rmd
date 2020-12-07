@@ -175,25 +175,55 @@ summary(reduced.1)
 ```{r}
 library(MASS)
 # Do we need to transform predictor? If lambda=1 is in the confidence interval we do not need a transformation, if 0 is in CI then us ln(y), otherwise use y^lambda (see pg 17 in notes)
-boxcox(jh_result)
+boxcox(reduced.1)
 # check distribution of residuals
-plot(residuals(jh_result), main = c)
+plot(residuals(reduced.1))
 abline(h=0,col='red')
 # check normal distribution
-qqnorm(jh_result$residuals)
-qqline(jh_result$residuals, col="red")
+qqnorm(reduced.1$residuals)
+qqline(reduced.1$residuals, col="red")
 # autocorrelation
-acf(jh_result$residuals, main="ACF of Residuals")
+acf(reduced.1$residuals, main="ACF of Residuals")
+
+
+#--------------------
+# Transformation
+jh_data$Actual.t <- jh_data$Actual^(1/4)
+reduced.t<- lm(Actual.t~num_accolades + PTS + yrs_exp + num_teams_played + 
+    GS. + NBA_titles + num_teams_1920 + PF + DRB, data = jh_data)
+summary(reduced.t)
+anova(reduced.t)
+
+#check assumptions on transformed data:
+boxcox(reduced.t)
+# check distribution of residuals
+plot(residuals(reduced.t))
+abline(h=0,col='red')
+# check normal distribution
+qqnorm(reduced.t$residuals)
+qqline(reduced.t$residuals, col="red")
+# autocorrelation
+acf(reduced.t$residuals, main="ACF of Residuals")
+# lag of 24ish is above ci, do we need to worry about this?
+
+```
+```{r}
+stepBoth <- lm(jh_data$Actual.t ~ yrs_exp + num_teams_played + GS. + 
+    drafted  + G + Pos + AST + draft_num + DRB + twitter_followers + 
+    FGA + PF + injury_yrs, data=jh_data)
+stepBoth
+summary(stepBoth)
 ```
 
 Questions:
-1. Is it a problem if we don't have categorical variables?
-2. VIF suggests we have some multicolinearity, do we drop those with high VIF's?
+1. Is it a problem if we don't have categorical variables? (no but we wil anyway)
+2. Is interaction only for categorical variables (Answer: No, but should we worry about it?  Are there likely candidates? Should we simplify?)
+(a) How do we find a good interaction with just 1 categorical variable?
 3. Do we want to error on the side of more predictors (less bias) or fewer predictors (less variance)?
 4. Should we do cross validation?
 5. Should we check AIC/BIC/Press statistic (43)
 6. Test predictive ability?
-7. Should we try to get better linear fits by dealing with outliers?
+7. Should we try to get better linear fits by dealing with outliers? (apparenty we don't have to check categorical predictors for outliers (see discussion notes))
 8. (partial regression plot, pg. 48, module 8)
 
 
@@ -203,6 +233,11 @@ is.factor(jh_data$Pos)
 
 levels(jh_data$Pos)
 contrasts(jh_data$Pos)
+
+# equality of variance assumption test.  H0 variances are the same, HA variances are not the same for all classes
+library(lawstat)
+levene.test(jh_data$Actual.t,jh_data$Pos)
+# greater than 0.05 so we reject H0 and we are in good shape
 
 a1<-subset(jh_data,Pos=="C")
 a2<-subset(jh_data,Pos=="C-PF")
@@ -220,35 +255,35 @@ a13<-subset(jh_data,Pos=="SG-PG")
 a14<-subset(jh_data,Pos=="SG-SF")
 
 
-reg1<-lm(Guaranteed~PTS,data=a1)
-reg2<-lm(Guaranteed~PTS,data=a2)
-reg3<-lm(Guaranteed~PTS,data=a3)
-reg4<-lm(Guaranteed~PTS,data=a4)
-reg5<-lm(Guaranteed~PTS,data=a5)
-reg6<-lm(Guaranteed~PTS,data=a6)
-reg7<-lm(Guaranteed~PTS,data=a7)
-reg8<-lm(Guaranteed~PTS,data=a8)
-reg9<-lm(Guaranteed~PTS,data=a9)
-reg10<-lm(Guaranteed~PTS,data=a10)
-reg11<-lm(Guaranteed~PTS,data=a11)
-reg12<-lm(Guaranteed~PTS,data=a12)
-reg13<-lm(Guaranteed~PTS,data=a13)
-reg14<-lm(Guaranteed~PTS,data=a14)
+reg1<-lm(Actual.t~PTS,data=a1)
+reg2<-lm(Actual.t~PTS,data=a2)
+reg3<-lm(Actual.t~PTS,data=a3)
+reg4<-lm(Actual.t~PTS,data=a4)
+reg5<-lm(Actual.t~PTS,data=a5)
+reg6<-lm(Actual.t~PTS,data=a6)
+reg7<-lm(Actual.t~PTS,data=a7)
+reg8<-lm(Actual.t~PTS,data=a8)
+reg9<-lm(Actual.t~PTS,data=a9)
+reg10<-lm(Actual.t~PTS,data=a10)
+reg11<-lm(Actual.t~PTS,data=a11)
+reg12<-lm(Actual.t~PTS,data=a12)
+reg13<-lm(Actual.t~PTS,data=a13)
+reg14<-lm(Actual.t~PTS,data=a14)
 
-plot(jh_data$PTS,jh_data$Guaranteed, main="Guaranteed against PTS, by Pos")
-points(a2$PTS,a2$Guaranteed, pch=2, col="red")
-points(a3$PTS,a3$Guaranteed, pch=3, col="blue")
-points(a4$PTS,a4$Guaranteed, pch=4, col="green")
-points(a5$PTS,a5$Guaranteed, pch=5, col="orange")
-points(a6$PTS,a6$Guaranteed, pch=6, col="purple")
-points(a7$PTS,a7$Guaranteed, pch=7, col="pink")
-points(a8$PTS,a8$Guaranteed, pch=8, col="seagreen2")
-points(a9$PTS,a9$Guaranteed, pch=9, col="salmon3")
-points(a10$PTS,a10$Guaranteed, pch=10, col="royalblue4")
-points(a11$PTS,a11$Guaranteed, pch=11, col="rosybrown4")
-points(a12$PTS,a12$Guaranteed, pch=12, col="skyblue2")
-points(a13$PTS,a13$Guaranteed, pch=13, col="slateblue2")
-points(a14$PTS,a14$Guaranteed, pch=14, col="slategray2")
+plot(jh_data$PTS,jh_data$Actual.t, main="Actual income against PTS, by Pos")
+points(a2$PTS,a2$Actual.t, pch=2, col="red")
+points(a3$PTS,a3$Actual.t, pch=3, col="blue")
+points(a4$PTS,a4$Actual.t, pch=4, col="green")
+points(a5$PTS,a5$Actual.t, pch=5, col="orange")
+points(a6$PTS,a6$Actual.t, pch=6, col="purple")
+points(a7$PTS,a7$Actual.t, pch=7, col="pink")
+points(a8$PTS,a8$Actual.t, pch=8, col="seagreen2")
+points(a9$PTS,a9$Actual.t, pch=9, col="salmon3")
+points(a10$PTS,a10$Actual.t, pch=10, col="royalblue4")
+points(a11$PTS,a11$Actual.t, pch=11, col="rosybrown4")
+points(a12$PTS,a12$Actual.t, pch=12, col="skyblue2")
+points(a13$PTS,a13$Actual.t, pch=13, col="slateblue2")
+points(a14$PTS,a14$Actual.t, pch=14, col="slategray2")
 
 abline(reg1,lty=1)
 # abline(reg2,lty=2, col="red")
@@ -264,5 +299,92 @@ abline(reg10,lty=10, col="royalblue4")
 abline(reg12,lty=12, col="skyblue2")
 abline(reg13,lty=13, col="slateblue2")
 # abline(reg14,lty=14, col="slategray2")
+
+legend("right", c("C","C-PF","PF","PF-C","PF-SF","PG","PG-SG","SF","SF-C","SF-PF","SF-SG","SG","SG-PG","SG-SF"), lty=c(1,2,3,4,5,6,7,8,9,10,11,12,13,14), pch=c(1,2,3,4,5,6,7,8,9,10,11,12,13,14), col=c("black","red","blue","green","orange","purple","pink","seagreen2","salmon3","royalblue4","rosybrown4","skyblue2","slateblue2","slategray2"))
+
+# some of these lines are a little nuts (PF-SF, SG-PG), these should be collapsed into other fields
+
+# run a boxplot to see if it makes sense to combine others of these
+boxplot(jh_data$Actual.t~jh_data$Pos, main="Boxplot of Actual Pay by Position")
+
+# colapse classes
+# create new collapsed class
+jh_data$Pos.colapsed <- jh_data$Pos
+
+# Eliminate all the double position classes. When no clear preference in the box plot pick the primary position.
+
+# C-PF doesn't really fit anywhere, put with C
+jh_data$Pos.colapsed[which(jh_data$Pos == "C-PF")] = "C"
+# PF-C closer to C than PF. 
+jh_data$Pos.colapsed[which(jh_data$Pos == "PF-C")] = "C"
+# PF-SF is unique, we will keep that one around
+# PG-SG we can group with PG (no natural match)
+jh_data$Pos.colapsed[which(jh_data$Pos == "PG-SG")] = "PG"
+# SF-C we will group with SF, no natural match
+jh_data$Pos.colapsed[which(jh_data$Pos == "SF-C")] = "SF"
+# SF-PF seems like a more natural match with SF
+jh_data$Pos.colapsed[which(jh_data$Pos == "SF-PF")] = "SF"
+# SF-SG seems like a better match with SF
+jh_data$Pos.colapsed[which(jh_data$Pos == "SF-SG")] = "SF"
+# SG-PG we will go with SG, no obvious match
+jh_data$Pos.colapsed[which(jh_data$Pos == "SG-PG")] = "SF"
+# SG-SF we will go with SG, no obvious match
+jh_data$Pos.colapsed[which(jh_data$Pos == "SG-SF")] = "SF"
+
+boxplot(jh_data$Actual.t~jh_data$Pos.colapsed, main="Boxplot of Actual Pay by Colapsed Position")
+
+# Check the new model
+reduced.t2<-lm(jh_data$Actual.t ~ yrs_exp + num_teams_played + GS. +
+    drafted  + G + Pos.colapsed + AST + draft_num + DRB + twitter_followers +
+    FGA + PF + injury_yrs, data=jh_data)
+summary(reduced.t2)
+
+# equality of variance assumption test.  H0 variances are the same, HA variances are not the same for all classes
+library(lawstat)
+levene.test(jh_data$Actual.t,jh_data$Pos.colapsed)
+# greater than 0.05 so we reject H0 and we are in good shape
+
+# replot the graph, look for nonlinear relationships (not paralel lines) add in interaction and compare partial f tests
+b1<-subset(jh_data,Pos.colapsed=="C")
+b2<-subset(jh_data,Pos.colapsed=="PF")
+b3<-subset(jh_data,Pos.colapsed=="PF-SF")
+b4<-subset(jh_data,Pos.colapsed=="PG")
+b5<-subset(jh_data,Pos.colapsed=="SF")
+b6<-subset(jh_data,Pos.colapsed=="SG")
+
+
+reg1<-lm(Actual.t~PTS,data=b1)
+reg2<-lm(Actual.t~PTS,data=b2)
+reg3<-lm(Actual.t~PTS,data=b3)
+reg4<-lm(Actual.t~PTS,data=b4)
+reg5<-lm(Actual.t~PTS,data=b5)
+reg6<-lm(Actual.t~PTS,data=b6)
+
+plot(jh_data$PTS,jh_data$Actual.t, main="Actual income against PTS, by Pos")
+points(b2$PTS,b2$Actual.t, pch=2, col="red")
+points(b3$PTS,b3$Actual.t, pch=3, col="blue")
+points(b4$PTS,b4$Actual.t, pch=4, col="green")
+points(b5$PTS,b5$Actual.t, pch=5, col="orange")
+points(b6$PTS,b6$Actual.t, pch=6, col="purple")
+
+abline(reg1,lty=1)
+abline(reg2,lty=2, col="red")
+abline(reg3,lty=3, col="blue")
+abline(reg4,lty=4, col="green")
+abline(reg5,lty=5, col="orange")
+abline(reg6,lty=6, col="purple")
+
+legend("right", c("C","PF","PF-SF","PG","SF","SG"), lty=c(1,2,3,4,5,6), pch=c(1,2,3,4,5,6), col=c("black","red","blue","green","orange","purple"))
+
+
+# lines are not paralel indicating a posible interaction.  Let's see what that model looks like.
+reduced.t3<-lm(jh_data$Actual.t ~ yrs_exp + num_teams_played + GS. +
+    drafted  + G * Pos.colapsed + AST + draft_num + DRB + twitter_followers +
+    FGA + PF + injury_yrs, data=jh_data)
+summary(reduced.t3)
+
+# partial f test, should we keep the interaction?
+anova(reduced.t3,reduced.t2)
+# fail to reject the null, we will remove the interaction
 ```
 
