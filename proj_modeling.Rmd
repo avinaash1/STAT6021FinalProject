@@ -64,55 +64,50 @@ for (c in 1:ncol(jh_data)) {
 ```
 
 ```{r}
-### Khoi
-
 # exploratory data analysis
 ## reading in data
 kt_data <- read.csv(file = 'NBA_salary_stats.csv', 
                     row.names = 1, 
                     header = TRUE)
+```
 
-# drop Guaranteed salary in exchange for using 'X2019.20' (actual pay) when predictingsalary (index = 3rd column)
+```{r}
+# drop Guaranteed salary in exchange for using Actual pay when predicting salary (index = 3rd column)
 ### correlation plots, 2019-20 season performance stats
 ## correlation plots for total point scoring
-corrplot(cor(subset(kt_data, select = c('Actual', 'MP', 'G', 'GS', 'X2P', 'X3P', 'FT', 
-                                        'ORB', 'DRB', 'AST', 'STL', 'BLK', 'TOV', 'PF')),
+other_perf <- c('ORB', 'DRB', 'AST', 'STL', 'BLK', 'TOV', 'PF')
+performance_stats <- c('Actual', 'MP', 'GS', 'X2P', 'X3P', 'FT')
+corrplot(cor(subset(kt_data, select = c(performance_stats, other_perf)),
              use = 'complete.obs'),
          method = 'circle',
          type = 'upper')
 
+cor(subset(kt_data, select = performance_stats)) %>% 
+  pairs()
+```
+
+```{r}
 ## correlation plots with accuracy (e.g. 3-point percentage)
-corrplot(cor(subset(kt_data, select = c('Actual', 'MP', 'G', 'GS.', 'X2P.', 'X3P.', 'FT.', 
-                                        'ORB', 'DRB', 'AST', 'STL', 'BLK', 'TOV', 'PF')),
+performance_stats_pct <- c('Actual', 'MP', 'GS.', 'X2P.', 'X3P.', 'FT.')
+corrplot(cor(subset(kt_data, select = c(performance_stats_pct, other_perf)),
              use = 'complete.obs'),
          method = 'circle',
          type = 'upper')
 
-### correlation plots, overall career statistics
-# e.g. mid-season trades, experience, age, etc.
-corrplot(cor(subset(kt_data, select = c('Actual', 'yrs_exp', 'age_yrs', 'draft_num', 
-                                        'num_accolades', 'NBA_titles', 'all_NBA', 'num_teams_1920', 
-                                        'mid_season_trades', 'num_yrs_current_team', 
-                                        'num_teams_played', 'injury_yrs', 'twitter_followers')), 
+cor(subset(kt_data, select = performance_stats_pct)) %>% 
+  pairs()
+```
+
+```{r}
+## correlation plots with attempts (e.g. 3-point attempts)
+performance_stats_atmpt <- c('Actual', 'MP', 'G', 'X2PA', 'X3PA', 'FTA')
+corrplot(cor(subset(kt_data, select = c(performance_stats_atmpt, other_perf)),
              use = 'complete.obs'),
          method = 'circle',
          type = 'upper')
 
-## list variables most correlated to actual salary
-cor(subset(kt_data, select = c('Actual', 'MP', 'G', 'GS', 'X2P', 'X3P', 'FT', 
-                               'ORB', 'DRB', 'AST', 'STL', 'BLK', 'TOV', 'PF')))[,1]
-# GS, X2P, FT, DRB, AST, TOV are > 0.5
-# MP, X3P, ORB, STL, BLK, PF > 0.3
-cor(subset(kt_data, select = c('Actual', 'MP', 'G', 'GS.', 'X2P.', 'X3P.', 'FT.', 
-                               'ORB', 'DRB', 'AST', 'STL', 'BLK', 'TOV', 'PF')))[,1]
-# GS., DRB, AST, TOV are > 0.5
-# MP, ORB, STL, BLK, PF > 0.3
-cor(subset(kt_data, select = c('Actual', 'yrs_exp', 'age_yrs', 'draft_num', 
-                               'num_accolades', 'NBA_titles', 'all_NBA', 'num_teams_1920', 
-                               'mid_season_trades', 'num_yrs_current_team', 
-                               'num_teams_played', 'injury_yrs', 'twitter_followers')))[,1]
-# yrs_exp, num_accolades are 0.5
-# age_yrs, all_NBA, num_yrs_current_team, twitter_followers > 0.3
+cor(subset(kt_data, select = performance_stats_atmpt)) %>% 
+  pairs()
 ```
 
 ```{r}
