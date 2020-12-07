@@ -111,6 +111,194 @@ cor(subset(kt_data, select = performance_stats_atmpt)) %>%
 ```
 
 ```{r}
+### correlation plots, overall career statistics
+# e.g. mid-season trades, experience, age, etc.
+other_stats <- c('Actual', 'yrs_exp', 'age_yrs', 'draft_num', 
+                 'num_accolades', 'NBA_titles', 'all_NBA', 'num_teams_1920', 
+                 'mid_season_trades', 'num_yrs_current_team', 
+                 'num_teams_played', 'injury_yrs', 'twitter_followers')
+corrplot(cor(subset(kt_data, select = other_stats), 
+             use = 'complete.obs'),
+         method = 'circle',
+         type = 'upper')
+
+cor(subset(kt_data, select = other_stats)) %>% 
+  pairs()
+```
+
+```{r}
+## list variables most correlated to actual salary
+cor(subset(kt_data, select = performance_stats))[,1]
+# GS, X2P, FT are > 0.5
+# X3P > 0.38
+# MP is a decent correlator in all performance-related correlations
+cor(subset(kt_data, select = performance_stats_pct))[,1]
+# GS., X2P. are > 0.5
+# MP still a decent correlator
+cor(subset(kt_data, select = performance_stats_atmpt))[,1]
+# FTA and X2PA are > 0.5
+# X3PA > 0.39
+# MP still a decent correlator
+cor(subset(kt_data, select = other_stats))[,1]
+# yrs_exp, num_accolades are > 0.5
+# age_yrs, all_NBA, num_yrs_current_team, twitter_followers > 0.3
+cor(subset(kt_data, select = c('Actual', other_perf)))[,1]
+# DRB, AST, TOV are > 0.5
+# ORB, STL, BLK, and PF are > 0.3
+```
+
+```{r}
+## regression with all variables but player name, guaranteed salary, link to url, and team
+lm(Actual ~ ., data = kt_data[-c(1, 3, 30, 38)]) %>% 
+  summary()
+## regression with performance stats
+lm(Actual ~ ., data = subset(kt_data, select = performance_stats)) %>% 
+    summary()
+## regression with performance stats, percentages
+lm(Actual ~ ., data = subset(kt_data, select = performance_stats_pct)) %>% 
+    summary()
+## regression with performance stats, attempts
+lm(Actual ~ ., data = subset(kt_data, select = performance_stats_atmpt)) %>% 
+    summary()
+## regression with other performance stats
+lm(Actual ~ ., data = subset(kt_data, select = c('Actual', other_perf))) %>% 
+    summary()
+## regression with other stats
+lm(Actual ~ ., data = subset(kt_data, select = other_stats)) %>% 
+    summary()
+```
+
+```{r}
+## all stats above
+lm(Actual ~ ., data = subset(kt_data, select = c(performance_stats, performance_stats_pct, 
+                                                 performance_stats_atmpt, other_perf, other_stats) %>% 
+                                                  unique())) %>% 
+    summary()
+
+## regression with variables observed in correlation plots and previous regressions to be significant
+lm(Actual ~ GS. + FT + yrs_exp + DRB + AST + TOV + 
+            yrs_exp + num_accolades + num_teams_played, 
+    data = kt_data) %>% 
+      summary()
+
+## further reduced regression
+lm(Actual ~ GS. + FT + yrs_exp + yrs_exp + 
+            num_accolades + num_teams_played, 
+    data = kt_data) %>% 
+      summary()
+```
+
+```{r}
+## reduced dataset for further analysis
+kt_data1 <- sapply(subset(kt_data, select = c(performance_stats, other_perf, 
+                                              other_stats) %>% unique()), as.numeric) %>% 
+              data.frame()
+kt_data2 <- sapply(subset(kt_data, select = c(performance_stats, performance_stats_pct, 
+                                              performance_stats_atmpt, other_perf, other_stats) %>% 
+                                                unique()), as.numeric) %>% 
+              data.frame()
+
+## PCA
+# first PCA, more reduced dataset
+kt_pca1 <- prcomp(kt_data1, 
+                  scale = TRUE)
+
+# 95% of variance explained by first 14 PCAs
+## after 14 PCAs, each successive PCA only explains <1% of additional variance
+# 90% of variance explained by first 10 PCAs
+## after 10 PCAs, each successive PCA only explains <2% of additional variance
+# 75% of variance explained by first 6 PCAs
+## after 6 PCAs, each successive PCA only explains <4% of additional variance
+
+cumsum(kt_pca1$sdev^2 / sum(kt_pca1$sdev^2))
+
+kt_pca1$rotation[, 1:14] %>% round(3) %>% abs()
+
+# second PCA, less reduced dataset
+kt_pca2 <- prcomp(kt_data2, 
+                  scale = TRUE)
+
+cumsum(kt_pca2$sdev^2 / sum(kt_pca2$sdev^2))
+
+kt_pca2$rotation[, 1:14] %>% round(3) %>% abs()
+```
+
+```{r}
+## lasso and  ridge regression
+set.seed(19462)
+nba_x <- model.matrix(Actual ~ ., kt_data2)[, -1]
+nba_y <- kt_data2$Actual
+# select a random sample
+train <- sample(1:nrow(nba_x), nrow(nba_x) / 2)
+# split data into testing
+test_x <- (-train)
+test_y <- nba_y[test_x]
+
+# using CV to find the optimal lambda based on training set
+set.seed(72347)
+
+# fitting ridge regression
+nba_cv <- cv.glmnet(nba_x[train, ],
+                    nba_y[train],
+                    alpha = 0)
+
+NBA_ridge <- glmnet(nba_x[train,],
+                    nba_y[train],
+                    alpha = 0,
+                    lambda = nba_cv$lambda.min,
+                    thresh = 1e-14)
+# test MSE with optimal lambda
+NBA_pred <- predict(NBA_ridge,
+                    s = nba_cv$lambda.min,
+                    newx = nba_x[test_x,])
+mean((NBA_pred - test_y)^2)
+
+# fitting lasso regression
+nba_cv1 <- cv.glmnet(nba_x[train, ],
+                     nba_y[train],
+                     alpha = 1)
+
+NBA_lasso <- glmnet(nba_x[train,],
+                    nba_y[train],
+                    alpha = 1,
+                    lambda = nba_cv1$lambda.min,
+                    thresh = 1e-14)
+# test MSE with optimal lambda
+NBA_pred1 <- predict(NBA_lasso,
+                     s = nba_cv$lambda.min,
+                     newx = nba_x[test_x,])
+mean((NBA_pred1 - test_y)^2)
+
+# fitting OLS
+NBA_OLS <- glmnet(nba_x[train,],
+                  nba_y[train],
+                  alpha = 0,
+                  lambda = 0,
+                  thresh = 1e-14)
+
+# test MSE with optimal lambda
+NBA_pred2 <- predict(NBA_OLS,
+                     s = 0,
+                     newx = nba_x[test_x,])
+mean((NBA_pred2 - test_y)^2)
+
+# test MSE with general linear regressions
+mean((predict(lm(Actual ~ ., data = kt_data2), 
+              newx = nba_x[test_x,]) - test_y)^2)
+mean((predict(lm(Actual ~ GS. + FT + yrs_exp + yrs_exp + 
+                          num_accolades + num_teams_played, 
+                 data = kt_data2), 
+              newx = nba_x[test_x,]) - test_y)^2)
+
+## use predict() with some of the previous regressions to compare MSEs
+
+cbind(coefficients(NBA_ridge),
+      coefficients(NBA_lasso),
+      coefficients(NBA_OLS)) %>% 
+  round(3)
+```
+
+```{r}
 # Jordan
 # automated search procedures
 
