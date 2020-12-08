@@ -58,12 +58,6 @@ for (c in names(high_cor)) {
 ```
 
 ```{r}
-for (c in 1:ncol(jh_data)) {
-  (is.numeric(jh_data[c]))
-  }
-```
-
-```{r}
 # exploratory data analysis
 ## reading in data
 kt_data <- read.csv(file = 'NBA_salary_stats.csv', 
@@ -280,6 +274,7 @@ points(a12$PTS,a12$Actual.t, pch=12, col="skyblue2")
 points(a13$PTS,a13$Actual.t, pch=13, col="slateblue2")
 points(a14$PTS,a14$Actual.t, pch=14, col="slategray2")
 
+# Note: I've commented out lines that were failing because they only have one or two values
 abline(reg1,lty=1)
 # abline(reg2,lty=2, col="red")
 abline(reg3,lty=3, col="blue")
