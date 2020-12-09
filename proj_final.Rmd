@@ -1,9 +1,8 @@
 ---
 title: "proj1"
-author: "Khoi Tran (kt2np), Avinaash Pavuloori (akp8vy), Jordan Hiatt (jdh2e), Nick Thompson (nat3fa)"
+author:  "Khoi Tran (kt2np), Avinaash Pavuloori (akp8vy), Jordan Hiatt (jdh2e), Nick Thompson (nat3fa)"
 date: "November 16, 2020"
 output: html_document
-
 ---
 
 ### STAT 6021 Final Project: Analyzing NBA Salaries
@@ -670,7 +669,8 @@ kt_lm6 <- lm(Actual ~ yrs_exp + num_teams_played + GS. + NBA_titles +
                       num_teams_1920 + DRB, data = kt_data)
 boxcox(kt_lm6)$x[which.max(boxcox(kt_lm6)$y)]
 ## power of 0.222222
-kt_lm7 <- lm(Actual^(2/9) ~ GS. + FT + yrs_exp + num_teams_played, data = kt_data)
+kt_lm7 <- lm(Actual^(2/9) ~ yrs_exp + num_teams_played + GS. + NBA_titles + 
+                            num_teams_1920 + DRB, data = kt_data)
 kt_lm7 %>% 
   summary()
 
@@ -682,6 +682,15 @@ boxcox(kt_lm8)$x[which.max(boxcox(kt_lm8)$y)]
 kt_lm9 <- lm(Actual^(26/99) ~ yrs_exp * num_teams_played + GS. + NBA_titles + 
                               num_teams_1920 + DRB, data = kt_data)
 kt_lm9 %>% 
+  summary()
+
+# drop NBA titles and num_teams_1920 from interactive variable model
+kt_lm10 <- lm(Actual ~ yrs_exp * num_teams_played + 
+                        GS. + DRB, data = kt_data)
+boxcox(kt_lm10)$x[which.max(boxcox(kt_lm10)$y)]
+kt_lm11 <- lm(Actual^(26/99) ~ yrs_exp * num_teams_played + 
+                                GS. + DRB, data = kt_data)
+kt_lm11 %>% 
   summary()
 ```
 
@@ -810,6 +819,9 @@ mean((predict(lm(formula = Actual^(2/9) ~ GS. + FT + yrs_exp + num_teams_played,
 mean((predict(lm(formula = Actual^(26/99) ~ yrs_exp * num_teams_played + GS. + NBA_titles + num_teams_1920 + DRB, 
               data = kt_data[test_x,]), 
               newx = nba_x[test_x,]) - test_y)^2) # best model, y-transformation and interaction variable (lm9)
+mean((predict(lm(formula = Actual^(26/99) ~ yrs_exp * num_teams_played + GS. + DRB, 
+              data = kt_data[test_x,]), 
+              newx = nba_x[test_x,]) - test_y)^2) # reduced model w/ interaction variable (lm11)
 ```
 
 ```{r}
@@ -837,40 +849,55 @@ PRESS(kt_lm5)
 ```
 
 ```{r}
-# eighth model
+# seventh model
 acf(kt_lm7$residuals)
 qqnorm(kt_lm7$residuals)
 qqline(kt_lm7$residuals, col = 'red')
 
-plot(kt_lm7$fitted.values, kt_lm7$residuals, main = 'Residual Plot, Eighth Model')
+plot(kt_lm7$fitted.values, kt_lm7$residuals, main = 'Residual Plot, Seventh Model')
 abline(h = 0, col= 'red')
 vif(kt_lm7)
 PRESS(kt_lm7)
 ```
 
 ```{r}
-# tenth model
-acf(kt_lm8$residuals)
-qqnorm(kt_lm8$residuals)
-qqline(kt_lm8$residuals, col = 'red')
+# ninth model
+acf(kt_lm9$residuals)
+qqnorm(kt_lm9$residuals)
+qqline(kt_lm9$residuals, col = 'red')
 
-plot(kt_lm8$fitted.values, kt_lm8$residuals, main = 'Residual Plot, Tenth Model')
+plot(kt_lm9$fitted.values, kt_lm9$residuals, main = 'Residual Plot, Ninth Model')
 abline(h = 0, col= 'red')
-vif(kt_lm8)
-PRESS(kt_lm8)
+vif(kt_lm9)
+PRESS(kt_lm9)
+```
+
+```{r}
+# eleventh model
+acf(kt_lm11$residuals)
+qqnorm(kt_lm11$residuals)
+qqline(kt_lm11$residuals, col = 'red')
+
+plot(kt_lm11$fitted.values, kt_lm11$residuals, main = 'Residual Plot, Eleventh Model')
+abline(h = 0, col= 'red')
+vif(kt_lm11)
+PRESS(kt_lm11)
 ```
 
 ## Deciding On A Model
 
 After the use of shrinking methods, and comparing their results to the various regression models previously created, the y-transformed models fare the best, with the lowest MSE values when used on split training and testing data.
 
-While the fifth model, `Actual^(31/99) ~ yrs_exp + num_teams_played + GS. + NBA_titles + num_teams_1920 + PF + DRB` had the lowest MSE during testing, it was only marginally lower than the other two y-transformed models (the seventh and eighth models). I would settle on the seventh model, using both a y-transformation and more reduced variables. The seventh model had overall the lowest residual standard error, a strong adjusted R-squared value, and the lowest predicted residual error sum of squares (PRESS) statistic.
+While the fifth model, `Actual^(31/99) ~ yrs_exp + num_teams_played + GS. + NBA_titles + num_teams_1920 + PF + DRB` had the lowest MSE during testing, it was only marginally lower than the other two y-transformed models (the seventh and ninth models). I would settle on the seventh model, using both a y-transformation and more reduced variables. The seventh model had overall the lowest residual standard error, a strong adjusted R-squared value, and the lowest predicted residual error sum of squares (PRESS) statistic.
+
+##note: seventh model has best QQplot, residual plot##
 
 # Fifth Model
 
 ```
 lm(formula = Actual^(31/99) ~ yrs_exp + num_teams_played + GS. + 
-    NBA_titles + num_teams_1920 + PF + DRB, data = kt_data)
+                              NBA_titles + num_teams_1920 + PF + DRB, 
+                              data = kt_data)
 
 Coefficients:
                   Estimate Std. Error t value Pr(>|t|)    
@@ -889,55 +916,78 @@ F-statistic: 105.4 on 7 and 454 DF,  p-value: < 2.2e-16
 PRESS statistic: 436560
 ```
 
-# Seventh Model
+# Seventh Model (final model)
 
 ```
-lm(formula = Actual^(2/9) ~ GS. + FT + yrs_exp + num_teams_played, 
-    data = kt_data)
+lm(formula = Actual^(2/9) ~ yrs_exp + num_teams_played + GS. + 
+                            NBA_titles + num_teams_1920 + DRB, 
+                            data = kt_data)
 
 Coefficients:
-                  Estimate Std. Error t value Pr(>|t|)    
-(Intercept)      21.614465   0.509838  42.395  < 2e-16 ***
-GS.               6.028513   0.786875   7.661 1.11e-13 ***
-FT                0.023240   0.003177   7.315 1.17e-12 ***
-yrs_exp           1.273308   0.090857  14.014  < 2e-16 ***
-num_teams_played -1.181030   0.193846  -6.093 2.36e-09 ***
+                 Estimate Std. Error t value Pr(>|t|)    
+(Intercept)      20.45307    0.66662  30.682  < 2e-16 ***
+yrs_exp           1.38495    0.09755  14.198  < 2e-16 ***
+num_teams_played -1.44323    0.20609  -7.003 9.05e-12 ***
+GS.               6.50456    0.82679   7.867 2.66e-14 ***
+NBA_titles       -0.99585    0.51940  -1.917   0.0558 .  
+num_teams_1920    0.84740    0.42253   2.006   0.0455 *  
+DRB               0.01263    0.00231   5.466 7.58e-08 ***
 
-Residual standard error: 5.383 on 457 degrees of freedom
-Multiple R-squared:  0.6073,	Adjusted R-squared:  0.6039 
-F-statistic: 176.7 on 4 and 457 DF,  p-value: < 2.2e-16
-PRESS statistic: 13651.72
+Residual standard error: 5.393 on 455 degrees of freedom
+Multiple R-squared:  0.6076,	Adjusted R-squared:  0.6024 
+F-statistic: 117.4 on 6 and 455 DF,  p-value: < 2.2e-16
+PRESS statistic: 13819.04
 ```
 
-# Eighth Model
+# Ninth Model
 
 ```
-lm(formula = Actual ~ yrs_exp * num_teams_played + GS. + NBA_titles + 
-    num_teams_1920 + DRB, data = kt_data)
+lm(formula = Actual^(26/99) ~ yrs_exp * num_teams_played + GS. + 
+                              NBA_titles + num_teams_1920 + DRB, 
+                              data = kt_data)
+
+Coefficients:
+                          Estimate Std. Error t value Pr(>|t|)    
+(Intercept)              29.831574   1.609348  18.536  < 2e-16 ***
+yrs_exp                   4.317675   0.278006  15.531  < 2e-16 ***
+num_teams_played          0.365395   0.700869   0.521   0.6024    
+GS.                      12.907147   1.737565   7.428 5.50e-13 ***
+NBA_titles               -2.670163   1.083851  -2.464   0.0141 *  
+num_teams_1920            0.897823   0.895176   1.003   0.3164    
+DRB                       0.024818   0.004823   5.146 3.97e-07 ***
+yrs_exp:num_teams_played -0.423850   0.064948  -6.526 1.81e-10 ***
+
+Residual standard error: 11.23 on 454 degrees of freedom
+Multiple R-squared:  0.6467,	Adjusted R-squared:  0.6413 
+F-statistic: 118.7 on 7 and 454 DF,  p-value: < 2.2e-16
+PRESS statistic: 60303.16
+```
+
+# Eleventh Model
+```
+lm(formula = Actual^(26/99) ~ yrs_exp * num_teams_played + GS. + 
+    DRB, data = kt_data)
 
 Residuals:
-      Min        1Q    Median        3Q       Max 
--24907676  -3157517    -30735   2394214  17145906 
+    Min      1Q  Median      3Q     Max 
+-49.560  -6.326   0.422   6.918  32.542 
 
 Coefficients:
-                         Estimate Std. Error t value Pr(>|t|)    
-(Intercept)              -4172171     773248  -5.396 1.10e-07 ***
-yrs_exp                   2173550     133574  16.272  < 2e-16 ***
-num_teams_played          -101449     336748  -0.301  0.76335    
-GS.                       5943967     834852   7.120 4.25e-12 ***
-NBA_titles               -1281241     520760  -2.460  0.01425 *  
-num_teams_1920             721074     430107   1.676  0.09433 .  
-DRB                          7509       2317   3.240  0.00128 ** 
-yrs_exp:num_teams_played  -216486      31206  -6.937 1.38e-11 ***
+                          Estimate Std. Error t value Pr(>|t|)    
+(Intercept)              30.633871   1.455689  21.044  < 2e-16 ***
+yrs_exp                   4.130573   0.269566  15.323  < 2e-16 ***
+num_teams_played          0.653170   0.664091   0.984    0.326    
+GS.                      12.436927   1.685451   7.379 7.61e-13 ***
+DRB                       0.027390   0.004555   6.013 3.74e-09 ***
+yrs_exp:num_teams_played -0.426542   0.064106  -6.654 8.21e-11 ***
 ---
 Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 
-Residual standard error: 5397000 on 454 degrees of freedom
-Multiple R-squared:  0.6223,	Adjusted R-squared:  0.6165 
-F-statistic: 106.9 on 7 and 454 DF,  p-value: < 2.2e-16
-PRESS statistic: 1.39803e+16
+Residual standard error: 11.3 on 456 degrees of freedom
+Multiple R-squared:  0.6411,	Adjusted R-squared:  0.6372 
+F-statistic: 162.9 on 5 and 456 DF,  p-value: < 2.2e-16
+PRESS statistic: 60513.68
 ```
-
 
 ```{r}
 ## finding outliers
@@ -1020,7 +1070,6 @@ pred_results$String <- ifelse(pred_results$Salary_DeltaPCT < 0,
                                       pred_results$Salary_DeltaPCT))
 ```
 
-
 ```{r}
 ## top ten most overpaid players, by pct
 head(arrange(pred_results[outlier_index, ], desc(Salary_DeltaPCT)), n = 10)$String
@@ -1042,6 +1091,11 @@ head(arrange(pred_results[outlier_index, ], desc(Residuals)), n = 10)$String
 ```{r}
 ## top ten most underpaid players, by total residual
 head(arrange(pred_results[outlier_index, ], Residuals), n = 10)$String
+```
+
+```{r}
+## all outliers
+pred_results[outlier_index, c('String')]
 ```
 
 ## Finding The Most Overpaid And Underpaid Players In The NBA
