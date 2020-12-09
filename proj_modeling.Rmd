@@ -110,7 +110,7 @@ cor(subset(kt_data, select = performance_stats_atmpt)) %>%
 other_stats <- c('Actual', 'yrs_exp', 'age_yrs', 'draft_num', 
                  'num_accolades', 'NBA_titles', 'all_NBA', 'num_teams_1920', 
                  'mid_season_trades', 'num_yrs_current_team', 
-                 'num_teams_played', 'injury_yrs', 'twitter_followers')
+                 'num_teams_played', 'injury_yrs', 'twitter_followers', 'drafted')
 corrplot(cor(subset(kt_data, select = other_stats), 
              use = 'complete.obs'),
          method = 'circle',
@@ -122,21 +122,19 @@ cor(subset(kt_data, select = other_stats)) %>%
 
 ```{r}
 ## list variables most correlated to actual salary
-cor(subset(kt_data, select = performance_stats))[,1]
+cor(subset(kt_data, select = performance_stats))[, 1]
 # GS, X2P, FT are > 0.5
 # X3P > 0.38
 # MP is a decent correlator in all performance-related correlations
-cor(subset(kt_data, select = performance_stats_pct))[,1]
-# GS., X2P. are > 0.5
-# MP still a decent correlator
-cor(subset(kt_data, select = performance_stats_atmpt))[,1]
+cor(subset(kt_data, select = performance_stats_pct))[, 1]
+# GS. is > 0.5
+cor(subset(kt_data, select = performance_stats_atmpt))[, 1]
 # FTA and X2PA are > 0.5
 # X3PA > 0.39
-# MP still a decent correlator
-cor(subset(kt_data, select = other_stats))[,1]
+cor(subset(kt_data, select = other_stats))[, 1]
 # yrs_exp, num_accolades are > 0.5
 # age_yrs, all_NBA, num_yrs_current_team, twitter_followers > 0.3
-cor(subset(kt_data, select = c('Actual', other_perf)))[,1]
+cor(subset(kt_data, select = c('Actual', other_perf)))[, 1]
 # DRB, AST, TOV are > 0.5
 # ORB, STL, BLK, and PF are > 0.3
 ```
@@ -162,24 +160,46 @@ lm(Actual ~ ., data = subset(kt_data, select = other_stats)) %>%
     summary()
 ```
 
+# Most Significant Predictor Variables:
+
+- **G:** Number of games played in the 2019-2020 NBA season.
+- **GS.:** Percentage of games started in the 2019-2020 NBA season.
+- **GS.:** Percentage of games started in the 2019-2020 NBA season.
+- **FT:** Free throws scored.
+- **FTA:** Free throws attempted.
+- **DRB:** Defensive rebounds.
+- **AST:** Number of assists.
+- **PF:** Number of personal fouls.
+- **yrs_exp:** The number of years the player has played in the NBA.
+- **num_accolades:** The number of notable accolades a player has.
+- **NBA_titles:** The number of the NBA titles the player has won.
+- **num_teams_1920:** The number of teams a player has played for during the 2019-2020 season.
+- **num_teams_played:** The number of teams the player has played for throughout the duration of their career.
+
 ```{r}
-## all stats above
+## all stats from lists
 lm(Actual ~ ., data = subset(kt_data, select = c(performance_stats, performance_stats_pct, 
                                                  performance_stats_atmpt, other_perf, other_stats) %>% 
                                                   unique())) %>% 
     summary()
 
-## regression with variables observed in correlation plots and previous regressions to be significant
-lm(Actual ~ GS. + FT + yrs_exp + DRB + AST + TOV + 
-            yrs_exp + num_accolades + num_teams_played, 
+## regression with variables observed in previous regressions to be significant
+# use GS. alone instead of G and GS
+lm(Actual ~ GS. + FT + FTA + DRB + AST + PF + 
+            yrs_exp + num_accolades + NBA_titles + 
+            num_teams_1920 + num_teams_played, 
     data = kt_data) %>% 
       summary()
 
 ## further reduced regression, more significant
-kt_lm1 <- lm(Actual ~ GS. + FT + yrs_exp + 
-                      num_accolades + num_teams_played, 
-             data = kt_data)
-## stepwise
+kt_lm1 <- lm(Actual ~ GS. + DRB + PF + yrs_exp + 
+                      num_accolades + NBA_titles + 
+                      num_teams_1920 + num_teams_played, 
+   data = kt_data) %>% 
+    summary()
+
+## stepwise regression
+# list c(1, 3, 30, 38) excludes non-numeric variables (name, url, team) and guaranteed salary
 step(lm(formula = Actual ~ 1, data = kt_data[-c(1, 3, 30, 38)]), 
      scope = list(lower = lm(formula = Actual ~ 1, data = kt_data[-c(1, 3, 30, 38)]), 
                   upper = lm(formula = Actual ~ ., data = kt_data[-c(1, 3, 30, 38)])), 
@@ -187,14 +207,14 @@ step(lm(formula = Actual ~ 1, data = kt_data[-c(1, 3, 30, 38)]),
 
 ## suggested regression
 kt_lm2 <- lm(formula = Actual ~ num_accolades + PTS + yrs_exp + num_teams_played + 
-                        GS. + NBA_titles + num_teams_1920 + PF + DRB + 
-                        GS + eFG. + all_NBA, 
+                                GS. + NBA_titles + num_teams_1920 + PF + DRB + GS + 
+                                X2P. + FT + all_NBA + FTA + Pos, 
              data = kt_data)
 
 ## reduced further to
-kt_lm3 <- lm(formula = Actual ~ GS. + FT + yrs_exp + num_accolades + 
-                        num_teams_played + num_teams_1920 + PF, 
-                data = kt_data)
+kt_lm3 <- lm(formula = Actual ~ yrs_exp + num_teams_played + GS. + 
+                                NBA_titles + num_teams_1920 + PF + DRB, 
+             data = kt_data)
 ```
 
 ```{r}
@@ -209,31 +229,25 @@ kt_lm3 %>%
 
 ```{r}
 ## boxcox plots
-kt_bxcx1 <- boxcox(kt_lm1, seq(-1, 1))
 kt_bxcx2 <- boxcox(kt_lm2, seq(-1, 1))
 kt_bxcx3 <- boxcox(kt_lm3, seq(-1, 1))
 
 ## finding optimal lambda to transform y-variables
-kt_bxcx1$x[which.max(kt_bxcx1$y)]
 kt_bxcx2$x[which.max(kt_bxcx2$y)]
 kt_bxcx3$x[which.max(kt_bxcx3$y)]
 ```
 
 ```{r}
 ## transforming y, comparing models
-kt_lm4 <- lm(Actual^(1/3) ~ GS. + FT + yrs_exp + 
-                      num_accolades + num_teams_played, 
+# suggested regression from stepwise, transformed
+kt_lm4 <- lm(formula = Actual^(1/3) ~ num_accolades + PTS + yrs_exp + num_teams_played + 
+                                      GS. + NBA_titles + num_teams_1920 + PF + DRB + GS + 
+                                      X2P. + FT + all_NBA + FTA + Pos, 
              data = kt_data)
 
-## suggested regression
-kt_lm5 <- lm(Actual^(31/99) ~ num_accolades + PTS + yrs_exp + num_teams_played + 
-                      GS. + NBA_titles + num_teams_1920 + PF + DRB + 
-                      GS + eFG. + all_NBA, 
-             data = kt_data)
-
-## reduced further to
-kt_lm6 <- lm(Actual^(1/3) ~ GS. + FT + yrs_exp + num_accolades + 
-                      num_teams_played + num_teams_1920 + PF, 
+# suggested regression, reduced+transformed
+kt_lm5 <- lm(Actual^(31/99) ~ yrs_exp + num_teams_played + GS. + 
+                              NBA_titles + num_teams_1920 + PF + DRB, 
              data = kt_data)
 
 ## analysis
@@ -241,26 +255,26 @@ kt_lm4 %>%
   summary()
 kt_lm5 %>% 
   summary()
-kt_lm6 %>% 
-  summary()
-anova(kt_lm4, kt_lm6)
 ```
 
 ```{r}
-## without num_accolades, shown to be less significant
-kt_lm7 <- lm(Actual ~ GS. + FT + yrs_exp + num_teams_played, data = kt_data)
-boxcox(kt_lm7)$x[which.max(boxcox(kt_lm7)$y)]
-## power of 0.262626
-kt_lm8 <- lm(Actual^(26/99) ~ GS. + FT + yrs_exp + num_teams_played, data = kt_data)
-kt_lm8 %>% 
+## without PF (personal fouls), shown to be insignificant
+kt_lm6 <- lm(Actual ~ yrs_exp + num_teams_played + GS. + NBA_titles + 
+                      num_teams_1920 + DRB, data = kt_data)
+boxcox(kt_lm6)$x[which.max(boxcox(kt_lm6)$y)]
+## power of 0.222222
+kt_lm7 <- lm(Actual^(2/9) ~ GS. + FT + yrs_exp + num_teams_played, data = kt_data)
+kt_lm7 %>% 
   summary()
 
 ## interactive variable
-kt_lm9 <- lm(Actual ~ GS. + FT + yrs_exp * num_teams_played, data = kt_data)
-boxcox(kt_lm9)$x[which.max(boxcox(kt_lm9)$y)]
+kt_lm8 <- lm(Actual ~ yrs_exp * num_teams_played + GS. + NBA_titles + 
+                      num_teams_1920 + DRB, data = kt_data)
+boxcox(kt_lm8)$x[which.max(boxcox(kt_lm8)$y)]
 ## power of 0.262626
-kt_lm10 <- lm(Actual^(26/99) ~ GS. + FT + yrs_exp * num_teams_played, data = kt_data)
-kt_lm10 %>% 
+kt_lm9 <- lm(Actual^(26/99) ~ yrs_exp * num_teams_played + GS. + NBA_titles + 
+                              num_teams_1920 + DRB, data = kt_data)
+kt_lm9 %>% 
   summary()
 ```
 
@@ -371,120 +385,308 @@ NBA_pred2 <- predict(NBA_OLS,
 mean((NBA_pred - test_y)^2) # ridge
 mean((NBA_pred1 - test_y)^2) # lasso
 mean((NBA_pred2 - test_y)^2) # OLS
-mean((predict(lm(formula = Actual ~ GS. + FT + yrs_exp + num_accolades + num_teams_played, 
+mean((predict(lm(formula = Actual ~ GS. + DRB + PF + yrs_exp + num_accolades + 
+                                    NBA_titles + num_teams_1920 + num_teams_played, 
               data = kt_data[train, ]), 
-              newx = nba_x[test_x,]) - test_y)^2) # first reduced model (lm1)
-mean((predict(lm(formula = Actual ~ GS. + FT + yrs_exp + num_accolades + num_teams_played + 
-              num_teams_1920 + PF, data = kt_data[train, ]), 
+              newx = nba_x[test_x,]) - test_y)^2) # first reduced model (lm2)
+mean((predict(lm(formula = Actual ~ yrs_exp + num_teams_played + GS. + 
+                                    NBA_titles + num_teams_1920 + PF + DRB, 
+              data = kt_data[train, ]), 
               newx = nba_x[test_x,]) - test_y)^2) # reduced model, based off stepwise regression (lm3)
-mean((predict(lm(formula = Actual^(31/99) ~ num_accolades + PTS + yrs_exp + 
-              num_teams_played + GS. + NBA_titles + num_teams_1920 + PF + 
-              DRB + GS + eFG. + all_NBA, data = kt_data[train, ]), 
-              newx = nba_x[test_x,]) - test_y)^2) # best model after initial y-transformation (lm5)
-mean((predict(lm(formula = Actual^(26/99) ~ GS. + FT + yrs_exp + num_teams_played, 
+mean((predict(lm(formula = Actual^(31/99) ~ yrs_exp + num_teams_played + GS. + 
+                                            NBA_titles + num_teams_1920 + PF + DRB, 
               data = kt_data[train, ]), 
-              newx = nba_x[test_x,]) - test_y)^2) # further reduced model, y-transformation (lm8)
-mean((predict(lm(formula = Actual^(26/99) ~ GS. + FT + yrs_exp * num_teams_played, 
+              newx = nba_x[test_x,]) - test_y)^2) # best model after initial y-transformation (lm5)
+mean((predict(lm(formula = Actual^(2/9) ~ GS. + FT + yrs_exp + num_teams_played, 
+              data = kt_data[train, ]), 
+              newx = nba_x[test_x,]) - test_y)^2) # further reduced model, y-transformation (lm7)
+mean((predict(lm(formula = Actual^(26/99) ~ yrs_exp * num_teams_played + GS. + NBA_titles + num_teams_1920 + DRB, 
               data = kt_data[test_x,]), 
-              newx = nba_x[test_x,]) - test_y)^2) # best model, y-transformation and interaction variable (lm10)
+              newx = nba_x[test_x,]) - test_y)^2) # best model, y-transformation and interaction variable (lm9)
+```
+
+```{r}
+## function to return PRESS
+PRESS <- function(lm) {
+  ## calculate the predictive residuals
+  pr <- residuals(lm) / (1 - lm.influence(lm)$hat)
+  ## calculate the PRESS
+  PRESS <- sum(pr^2)
+  return(PRESS)
+}
+```
+
+```{r}
+## analyzing best models
+# fifth model
+acf(kt_lm5$residuals)
+qqnorm(kt_lm5$residuals)
+qqline(kt_lm5$residuals, col = 'red')
+
+plot(kt_lm5$fitted.values, kt_lm5$residuals, main = 'Residual Plot, Fifth Model')
+abline(h = 0, col= 'red')
+vif(kt_lm5)
+PRESS(kt_lm5)
+```
+
+```{r}
+# eighth model
+acf(kt_lm7$residuals)
+qqnorm(kt_lm7$residuals)
+qqline(kt_lm7$residuals, col = 'red')
+
+plot(kt_lm7$fitted.values, kt_lm7$residuals, main = 'Residual Plot, Eighth Model')
+abline(h = 0, col= 'red')
+vif(kt_lm7)
+PRESS(kt_lm7)
+```
+
+```{r}
+# tenth model
+acf(kt_lm8$residuals)
+qqnorm(kt_lm8$residuals)
+qqline(kt_lm8$residuals, col = 'red')
+
+plot(kt_lm8$fitted.values, kt_lm8$residuals, main = 'Residual Plot, Tenth Model')
+abline(h = 0, col= 'red')
+vif(kt_lm8)
+PRESS(kt_lm8)
 ```
 
 ## Deciding On A Model
 
 After the use of shrinking methods, and comparing their results to the various regression models previously created, the y-transformed models fare the best, with the lowest MSE values when used on split training and testing data.
 
-While the fifth model, `Actual^(31/99) ~ num_accolades + PTS + yrs_exp + num_teams_played + GS. + NBA_titles + num_teams_1920 + PF + DRB + GS + eFG. + all_NBA` had the lowest MSE during testing, it was only marginally lower than the other two y-transformed models (the eighth and tenth models). I would settle on the tenth model, using both a y-transformation and an interaction predictor variable. While it had weak signifiance on one predictor variable, the number of teams an NBA player has played on throughout his career (`num_teams_played`), it had overall the lowest residual standard error, with a strong adjusted R-squared value.
+While the fifth model, `Actual^(31/99) ~ yrs_exp + num_teams_played + GS. + NBA_titles + num_teams_1920 + PF + DRB` had the lowest MSE during testing, it was only marginally lower than the other two y-transformed models (the seventh and eighth models). I would settle on the seventh model, using both a y-transformation and more reduced variables. The seventh model had overall the lowest residual standard error, a strong adjusted R-squared value, and the lowest predicted residual error sum of squares (PRESS) statistic.
 
 # Fifth Model
 
-`Actual^(31/99) ~ num_accolades + PTS + yrs_exp + num_teams_played + GS. + NBA_titles + num_teams_1920 + PF + DRB + GS + eFG. + all_NBA`
-`Coefficients:`
-`                  Estimate Std. Error t value Pr(>|t|)    `
-`(Intercept)      61.650599   3.993791  15.437  < 2e-16 ***`
-`num_accolades     1.906608   1.648530   1.157  0.24807    `
-`PTS               0.033886   0.005417   6.256 9.24e-10 ***`
-`yrs_exp           7.440296   0.561973  13.240  < 2e-16 ***`
-`num_teams_played -7.728382   1.126666  -6.860 2.30e-11 ***`
-`GS.              62.645794   9.494565   6.598 1.18e-10 ***`
-`NBA_titles       -5.505496   3.035832  -1.814  0.07042 .  `
-`num_teams_1920    7.993471   5.909351   1.353  0.17684    `
-`PF               -0.013111   0.041389  -0.317  0.75156    `
-`DRB               0.051316   0.019311   2.657  0.00816 ** `
-`GS               -0.742562   0.173599  -4.277 2.31e-05 ***`
-`eFG.             -3.572819  11.472228  -0.311  0.75562    `
-`all_NBA          -2.176728   1.613129  -1.349  0.17789    `
+```
+lm(formula = Actual^(31/99) ~ yrs_exp + num_teams_played + GS. + 
+    NBA_titles + num_teams_1920 + PF + DRB, data = kt_data)
 
-`Residual standard error: 28.67 on 449 degrees of freedom`
-`Multiple R-squared:  0.6617,	Adjusted R-squared:  0.6527` 
-`F-statistic: 73.19 on 12 and 449 DF,  p-value: < 2.2e-16`
+Coefficients:
+                  Estimate Std. Error t value Pr(>|t|)    
+(Intercept)      68.772609   3.762377  18.279  < 2e-16 ***
+yrs_exp           8.106399   0.548001  14.793  < 2e-16 ***
+num_teams_played -8.685130   1.158136  -7.499  3.4e-13 ***
+GS.              37.957718   4.763240   7.969  1.3e-14 ***
+NBA_titles       -5.984639   2.917020  -2.052 0.040779 *  
+num_teams_1920    5.517161   2.466206   2.237 0.025764 *  
+PF               -0.005576   0.038728  -0.144 0.885581    
+DRB               0.070010   0.018371   3.811 0.000158 ***
 
-#Eighth Model
+Residual standard error: 30.25 on 454 degrees of freedom
+Multiple R-squared:  0.6191,	Adjusted R-squared:  0.6133 
+F-statistic: 105.4 on 7 and 454 DF,  p-value: < 2.2e-16
+PRESS statistic: 436560
+```
 
-`Actual^(26/99) ~ GS. + FT + yrs_exp + num_teams_played`
-`Coefficients:`
-`                  Estimate Std. Error t value Pr(>|t|)    `
-`(Intercept)      37.754486   1.106871  34.109  < 2e-16 ***`
-`GS.              13.138462   1.708326   7.691 9.05e-14 ***`
-`FT                0.051700   0.006898   7.495 3.46e-13 ***`
-`yrs_exp           2.822136   0.197252  14.307  < 2e-16 ***`
-`num_teams_played -2.654906   0.420845  -6.309 6.66e-10 ***`
+# Seventh Model
 
-`Residual standard error: 11.69 on 457 degrees of freedom`
-`Multiple R-squared:  0.6151,	Adjusted R-squared:  0.6117`
-`F-statistic: 182.5 on 4 and 457 DF,  p-value: < 2.2e-16`
+```
+lm(formula = Actual^(2/9) ~ GS. + FT + yrs_exp + num_teams_played, 
+    data = kt_data)
 
-# Tenth Model
+Coefficients:
+                  Estimate Std. Error t value Pr(>|t|)    
+(Intercept)      21.614465   0.509838  42.395  < 2e-16 ***
+GS.               6.028513   0.786875   7.661 1.11e-13 ***
+FT                0.023240   0.003177   7.315 1.17e-12 ***
+yrs_exp           1.273308   0.090857  14.014  < 2e-16 ***
+num_teams_played -1.181030   0.193846  -6.093 2.36e-09 ***
 
-`Actual^(26/99) ~ GS. + FT + yrs_exp * num_teams_played`
-`Coefficients:`
-`                          Estimate Std. Error t value Pr(>|t|)    `
-`(Intercept)              31.091803   1.430084  21.741  < 2e-16 ***`
-`GS.                      11.854338   1.638041   7.237 1.96e-12 ***`
-`FT                        0.047023   0.006606   7.118 4.27e-12 ***`
-`yrs_exp                   4.111483   0.265067  15.511  < 2e-16 ***`
-`num_teams_played          0.879632   0.650677   1.352    0.177    `
-`yrs_exp:num_teams_played -0.433853   0.062907  -6.897 1.78e-11 ***`
+Residual standard error: 5.383 on 457 degrees of freedom
+Multiple R-squared:  0.6073,	Adjusted R-squared:  0.6039 
+F-statistic: 176.7 on 4 and 457 DF,  p-value: < 2.2e-16
+PRESS statistic: 13651.72
+```
 
-`Residual standard error: 11.13 on 456 degrees of freedom`
-`Multiple R-squared:  0.6514,	Adjusted R-squared:  0.6476`
-`F-statistic: 170.4 on 5 and 456 DF,  p-value: < 2.2e-16`
+# Eighth Model
+
+```
+lm(formula = Actual ~ yrs_exp * num_teams_played + GS. + NBA_titles + 
+    num_teams_1920 + DRB, data = kt_data)
+
+Residuals:
+      Min        1Q    Median        3Q       Max 
+-24907676  -3157517    -30735   2394214  17145906 
+
+Coefficients:
+                         Estimate Std. Error t value Pr(>|t|)    
+(Intercept)              -4172171     773248  -5.396 1.10e-07 ***
+yrs_exp                   2173550     133574  16.272  < 2e-16 ***
+num_teams_played          -101449     336748  -0.301  0.76335    
+GS.                       5943967     834852   7.120 4.25e-12 ***
+NBA_titles               -1281241     520760  -2.460  0.01425 *  
+num_teams_1920             721074     430107   1.676  0.09433 .  
+DRB                          7509       2317   3.240  0.00128 ** 
+yrs_exp:num_teams_played  -216486      31206  -6.937 1.38e-11 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Residual standard error: 5397000 on 454 degrees of freedom
+Multiple R-squared:  0.6223,	Adjusted R-squared:  0.6165 
+F-statistic: 106.9 on 7 and 454 DF,  p-value: < 2.2e-16
+PRESS statistic: 1.39803e+16
+```
+
 
 ```{r}
 ## finding outliers
 ## using tenth model, with interaction variable
-kt_lm10res <- rstandard(kt_lm10)
-kt_lm10studentres <- rstudent(kt_lm10)
+kt_lm7res <- rstandard(kt_lm7)
+kt_lm7studentres <- rstudent(kt_lm7)
 
 # plotting
 par(mfrow = c(1, 3))
-plot(kt_lm10$fitted.values, kt_lm10$residuals, main = "Residuals")
-plot(kt_lm10$fitted.values, kt_lm10res, main = "Studentized Residuals")
-plot(kt_lm10$fitted.values, kt_lm10studentres, main = "Externally Studentized Residuals")
-kt_lm10studentres[abs(kt_lm10studentres) > qt(1 - 0.05 / (2 * 462), 456)]
+plot(kt_lm7$fitted.values, kt_lm7$residuals, main = "Residuals")
+plot(kt_lm7$fitted.values, kt_lm7res, main = "Studentized Residuals")
+plot(kt_lm7$fitted.values, kt_lm7studentres, main = "Externally Studentized Residuals")
+kt_lm7studentres[abs(kt_lm7studentres) > qt(1 - 0.05 / (2 * 462), 457)]
 ```
 
 ```{r}
 ## players with high leverage
-NBA_leverage <- lm.influence(kt_lm10)$hat
+NBA_leverage <- lm.influence(kt_lm7)$hat
+NBA_leverage <- NBA_leverage[NBA_leverage > 2 * 4 / 462]
+NBA_leverage
 
 # plotting
-plot(NBA_leverage, main = "Leverages", ylim = c(0, 0.25))
-abline(h = 2 * 5 / 462, col = "red")
-NBA_leverage[NBA_leverage > 2 * 5 / 462]
+plot(NBA_leverage, main = "Leverages", ylim = c(0, 0.2))
+abline(h = 2 * 4 / 462, col = "red")
 ```
 
 ```{r}
 # DFFITS
-NBA_DFFITS<- dffits(kt_lm10)
-NBA_DFFITS[abs(NBA_DFFITS) > 2 * sqrt(5 / 562)]
+NBA_DFFITS <- dffits(kt_lm7)
+NBA_DFFITS <- NBA_DFFITS[abs(NBA_DFFITS) > 2 * sqrt(4 / 462)]
+NBA_DFFITS
 ```
 
 
 ```{r}
 # Cook's distance
-NBA_COOKS <- cooks.distance(kt_lm10)
-NBA_COOKS[NBA_COOKS > qf(0.5, 3, 47 - 3)]
+NBA_COOKS <- cooks.distance(kt_lm7)
+NBA_COOKS <- NBA_COOKS[NBA_COOKS > qf(0.95, 4, 462 - 4)]
+NBA_COOKS
 ```
+
+```{r}
+## indexes for players who are outliers in terms of salary
+# measured by both leverage and DFFITS
+outlier_index <- c(names(NBA_DFFITS), names(NBA_leverage)) %>% 
+                  unique() %>% 
+                  as.numeric() %>% 
+                  sort()
+
+## apply model to outlier players to find predicted salary
+outlier_pred <- predict(kt_lm7, newx = kt_data, type = 'response', level = 0.95)
+
+## as response variable has y-transformation, find the base for actual predicted salary figures
+outlier_pred <- exp(log(outlier_pred) / (2/9))
+
+## create data frame with player names, actual salary, predicted salary, and residuals
+pred_results <- data.frame(Player = kt_data$Player, 
+                           Actual_Salary = kt_data$Actual, 
+                           Predicted_Salary = outlier_pred)
+
+## residual equals the difference between Actual and Predicted salaries
+pred_results$Residuals <- pred_results$Actual_Salary - pred_results$Predicted_Salary
+
+## percent (%) value the player is over or underpaid by
+pred_results$Salary_DeltaPCT <- ((pred_results$Residuals / pred_results$Actual_Salary) * 100) %>% round(2)
+
+## string for easy output of results
+pred_results$String <- ifelse(pred_results$Salary_DeltaPCT < 0, 
+                              sprintf('%s was underpaid by $%s (%.1f%%)', 
+                                      pred_results$Player, 
+                                      abs(pred_results$Residuals) %>% 
+                                        round(2) %>% 
+                                        format(big.mark = ',', nsmall = 2, trim = TRUE), 
+                                      pred_results$Salary_DeltaPCT), 
+                              sprintf('%s was overpaid by $%s (%.1f%%)', 
+                                      pred_results$Player, 
+                                      abs(pred_results$Residuals) %>% 
+                                        round(2) %>% 
+                                        format(big.mark = ',', nsmall = 2, trim = TRUE), 
+                                      pred_results$Salary_DeltaPCT))
+```
+
+
+```{r}
+## top ten most overpaid players, by pct
+head(arrange(pred_results[outlier_index, ], desc(Salary_DeltaPCT)), n = 10)$String
+```
+
+
+```{r}
+## top ten most underpaid players, by pct
+head(arrange(pred_results[outlier_index, ], Salary_DeltaPCT), n = 10)$String
+```
+
+
+```{r}
+## top ten most overpaid players, by total residual
+head(arrange(pred_results[outlier_index, ], desc(Residuals)), n = 10)$String
+```
+
+
+```{r}
+## top ten most underpaid players, by total residual
+head(arrange(pred_results[outlier_index, ], Residuals), n = 10)$String
+```
+
+## Finding The Most Overpaid And Underpaid Players In The NBA
+
+When applying our predictive model and searching for outliers in the dataset, these were the most overpaid and underpaid NBA athletes of the 2019-2020 season:
+
+# Most Overpaid
+
+Players most overpaid, by percentage of their salary.
+
+1. Chandler Parsons was overpaid by $21,663,000.52 (-86.3%) 
+2. Allen Crabbe was overpaid by $15,309,297.79 (-85.9%)    
+3. Evan Turner was overpaid by $14,959,720.04 (-80.4%)      
+4. Dewayne Dedmon was overpaid by $10,430,128.05 (-78.2%)  
+5. Otto Porter was overpaid by $20,905,632.12 (-76.7%)      
+6. Wayne Ellington was overpaid by $5,701,677.55 (-73.0%)  
+7. Ish Smith was overpaid by $3,957,484.55 (-67.6%)         
+8. Courtney Lee was overpaid by $8,424,653.12 (-66.0%)     
+9. Justin Holiday was overpaid by $3,145,407.33 (-66.0%)    
+10. Kent Bazemore was overpaid by $12,448,026.90 (-64.6%)  
+
+**Honorable Mention:** 
+Players most overpaid, in total dollars (if not previously mentioned above).
+
+* Tobias Harris was overpaid by $19,295,968.78 (-62.2%)
+* D'Angelo Russell was overpaid by $16,202,238.54 (-59.4%)
+* Nicolas Batum was overpaid by $16,026,047.29 (-62.7%)
+* Joel Embiid was overpaid by $11,831,148.68 (-43.0%)
+
+# Most Underpaid
+
+Players most underpaid, by percentage of their salary.
+
+1. Jamal Crawford was underpaid by $10,369,066.71 (-3578.0%)
+2. Lance Thomas was underpaid by $5,576,585.48 (-2127.2%)
+3. Luguentz Dort was underpaid by $2,781,022.35 (-1786.8%)
+4. Luc Mbah a Moute was underpaid by $4,035,528.06 (-1392.5%)
+5. Carmelo Anthony was underpaid by $29,860,499.33 (-1383.0%)
+6. Corey Brewer was underpaid by $3,369,160.12 (-1162.6%)
+7. Udonis Haslem was underpaid by $21,435,764.49 (-835.8%)
+8. Alec Burks was underpaid by $13,558,585.79 (-584.4%)
+9. Vince Carter was underpaid by $14,966,920.64 (-583.6%)
+10. Tyler Zeller was underpaid by $1,242,329.25 (-505.7%)
+
+**Honorable Mention:** 
+Players most underpaid, in total dollars (if not previously mentioned above).
+
+* James Harden was underpaid by $32,137,356.33 (-85.0%)
+* LeBron James was underpaid by $14,749,107.48 (-39.4%)
+* J.J. Barea was underpaid by $11,537,178.68 (-449.8%)
+* Lou Williams was underpaid by $10,405,363.78 (-130.1%)
+* Trae Young was underpaid by $10,261,123.90 (-163.6%)
 
 ```{r}
 # Jordan
