@@ -912,7 +912,7 @@ PRESS(kt_lm11)
 
 After the use of shrinking methods, and comparing their results to the various regression models previously created, the y-transformed models fare the best, with the lowest MSE values when used on split training and testing data.
 
-While the fifth model, `Actual^(31/99) ~ yrs_exp + num_teams_played + GS. + NBA_titles + num_teams_1920 + PF + DRB` had the lowest MSE during testing, it was only marginally lower than the other two y-transformed models (the seventh and ninth models). I would settle on the seventh model, using both a y-transformation and more reduced variables. The seventh model had overall the lowest residual standard error, a strong adjusted R-squared value, and the lowest predicted residual error sum of squares (PRESS) statistic.
+While the fifth model, `Actual^(31/99) ~ yrs_exp + num_teams_played + GS. + NBA_titles + num_teams_1920 + PF + DRB` had the lowest MSE during testing, it was only marginally lower than the other y-transformed models. I would settle on the sixth model, using both a y-transformation and more reduced variables. The sixth model had overall the lowest residual standard error, a strong adjusted R-squared value, and the lowest predicted residual error sum of squares (PRESS) statistic.
 
 ##note: seventh model has best QQplot, residual plot##
 
@@ -1036,20 +1036,20 @@ PRESS statistic: 60513.68
 ```{r}
 ## finding outliers
 ## using tenth model, with interaction variable
-kt_lm7res <- rstandard(kt_lm7)
-kt_lm7studentres <- rstudent(kt_lm7)
+kt_lm6res <- rstandard(kt_lm6)
+kt_lm6studentres <- rstudent(kt_lm6)
 
 # plotting
 par(mfrow = c(1, 3))
-plot(kt_lm7$fitted.values, kt_lm7$residuals, main = "Residuals")
-plot(kt_lm7$fitted.values, kt_lm7res, main = "Studentized Residuals")
-plot(kt_lm7$fitted.values, kt_lm7studentres, main = "Externally Studentized Residuals")
-kt_lm7studentres[abs(kt_lm7studentres) > qt(1 - 0.05 / (2 * 462), 457)]
+plot(kt_lm6$fitted.values, kt_lm6$residuals, main = "Residuals")
+plot(kt_lm6$fitted.values, kt_lm6res, main = "Studentized Residuals")
+plot(kt_lm6$fitted.values, kt_lm6studentres, main = "Externally Studentized Residuals")
+kt_lm6studentres[abs(kt_lm6studentres) > qt(1 - 0.05 / (2 * 462), 462 - 4 - 1)]
 ```
 
 ```{r}
 ## players with high leverage
-NBA_leverage <- lm.influence(kt_lm7)$hat
+NBA_leverage <- lm.influence(kt_lm6)$hat
 NBA_leverage <- NBA_leverage[NBA_leverage > 2 * 4 / 462]
 NBA_leverage
 
@@ -1060,7 +1060,7 @@ abline(h = 2 * 4 / 462, col = "red")
 
 ```{r}
 # DFFITS
-NBA_DFFITS <- dffits(kt_lm7)
+NBA_DFFITS <- dffits(kt_lm6)
 NBA_DFFITS <- NBA_DFFITS[abs(NBA_DFFITS) > 2 * sqrt(4 / 462)]
 NBA_DFFITS
 ```
@@ -1068,7 +1068,7 @@ NBA_DFFITS
 
 ```{r}
 # Cook's distance
-NBA_COOKS <- cooks.distance(kt_lm7)
+NBA_COOKS <- cooks.distance(kt_lm6)
 NBA_COOKS <- NBA_COOKS[NBA_COOKS > qf(0.95, 4, 462 - 4)]
 NBA_COOKS
 ```
@@ -1184,45 +1184,45 @@ When applying our predictive model and searching for outliers in the dataset, th
 
 Players most overpaid, by percentage of their salary.
 
-1. Chandler Parsons was overpaid by $21,663,000.52 (-86.3%) 
-2. Allen Crabbe was overpaid by $15,309,297.79 (-85.9%)    
-3. Evan Turner was overpaid by $14,959,720.04 (-80.4%)      
-4. Dewayne Dedmon was overpaid by $10,430,128.05 (-78.2%)  
-5. Otto Porter was overpaid by $20,905,632.12 (-76.7%)      
-6. Wayne Ellington was overpaid by $5,701,677.55 (-73.0%)  
-7. Ish Smith was overpaid by $3,957,484.55 (-67.6%)         
-8. Courtney Lee was overpaid by $8,424,653.12 (-66.0%)     
-9. Justin Holiday was overpaid by $3,145,407.33 (-66.0%)    
-10. Kent Bazemore was overpaid by $12,448,026.90 (-64.6%)  
+1. Chandler Parsons was overpaid by $21,814,406.41 (86.9%)
+2. Evan Turner was overpaid by $15,187,441.33 (81.6%)     
+3. Allen Crabbe was overpaid by $14,149,730.92 (79.4%)
+4. Wayne Ellington was overpaid by $6,022,526.20 (77.2%)  
+5. Otto Porter was overpaid by $20,683,328.75 (75.9%)
+6. Ish Smith was overpaid by $4,270,245.23 (73.0%)        
+7. Justin Holiday was overpaid by $3,416,420.00 (71.7%)
+8. Courtney Lee was overpaid by $8,874,016.66 (69.5%)     
+9. D'Angelo Russell was overpaid by $18,753,311.43 (68.7%)
+10. Kyrie Irving was overpaid by $21,706,041.95 (68.4%)    
 
 **Honorable Mention:** 
 Players most overpaid, in total dollars (if not previously mentioned above).
 
-* Tobias Harris was overpaid by $19,295,968.78 (-62.2%)
-* D'Angelo Russell was overpaid by $16,202,238.54 (-59.4%)
-* Nicolas Batum was overpaid by $16,026,047.29 (-62.7%)
-* Joel Embiid was overpaid by $11,831,148.68 (-43.0%)
+- Blake Griffin was overpaid by $18,735,279.47 (54.7%)
+- Devin Booker was overpaid by $16,299,870.78 (59.8%)
+- Nicolas Batum was overpaid by $14,347,813.47 (56.1%)   
+- Victor Oladipo was overpaid by $14,209,371.37 (67.7%)
 
 # Most Underpaid
 
 Players most underpaid, by percentage of their salary.
 
-1. Jamal Crawford was underpaid by $10,369,066.71 (-3578.0%)
-2. Lance Thomas was underpaid by $5,576,585.48 (-2127.2%)
-3. Luguentz Dort was underpaid by $2,781,022.35 (-1786.8%)
-4. Luc Mbah a Moute was underpaid by $4,035,528.06 (-1392.5%)
-5. Carmelo Anthony was underpaid by $29,860,499.33 (-1383.0%)
-6. Corey Brewer was underpaid by $3,369,160.12 (-1162.6%)
-7. Udonis Haslem was underpaid by $21,435,764.49 (-835.8%)
-8. Alec Burks was underpaid by $13,558,585.79 (-584.4%)
-9. Vince Carter was underpaid by $14,966,920.64 (-583.6%)
-10. Tyler Zeller was underpaid by $1,242,329.25 (-505.7%)
+1. Jamal Crawford was underpaid by $9,801,173.47 (-3382.0%)
+2. Lance Thomas was underpaid by $5,543,698.57 (-2114.7%)    
+3. Luguentz Dort was underpaid by $2,615,472.60 (-1680.4%)
+4. Carmelo Anthony was underpaid by $34,217,396.84 (-1584.8%)
+5. Luc Mbah a Moute was underpaid by $3,683,171.41 (-1270.9%)
+6. Corey Brewer was underpaid by $2,398,309.60 (-827.6%)     
+7. Udonis Haslem was underpaid by $18,101,902.04 (-705.8%)
+8. Vince Carter was underpaid by $16,672,187.90 (-650.0%)    
+9. J.J. Barea was underpaid by $11,383,154.97 (-443.8%)
+10. Tyler Zeller was underpaid by $919,804.14 (-374.4%)       
 
 **Honorable Mention:** 
 Players most underpaid, in total dollars (if not previously mentioned above).
 
-* James Harden was underpaid by $32,137,356.33 (-85.0%)
-* LeBron James was underpaid by $14,749,107.48 (-39.4%)
-* J.J. Barea was underpaid by $11,537,178.68 (-449.8%)
-* Lou Williams was underpaid by $10,405,363.78 (-130.1%)
-* Trae Young was underpaid by $10,261,123.90 (-163.6%)
+- Andre Drummond was underpaid by $30,760,326.65 (-113.5%)
+- LaMarcus Aldridge was underpaid by $10,629,407.34 (-40.9%)
+- Tyson Chandler was underpaid by $8,617,217.59 (-336.0%)
+- Alec Burks was underpaid by $7,789,537.25 (-335.8%)
+- Wesley Matthews was underpaid by $7,765,215.57 (-302.8%)
