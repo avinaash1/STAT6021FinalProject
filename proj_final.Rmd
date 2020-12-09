@@ -664,10 +664,18 @@ anova(kt_lm4,
 ##not very important, write section##
 
 ```{r}
+## further reduced model, including points scored
+boxcox(lm(Actual ~ yrs_exp + num_teams_played + 
+                   PTS + GS., data = kt_data))$x[which.max(boxcox(lm(Actual ~ yrs_exp + num_teams_played + 
+                                                                               PTS + GS., data = kt_data))$y)]
+kt_lm6 <- lm(Actual^(2/9) ~ yrs_exp + num_teams_played + 
+                            PTS + GS., data = kt_data)
+kt_lm6 %>% 
+  summary()
 ## without PF (personal fouls), shown to be insignificant
-kt_lm6 <- lm(Actual ~ yrs_exp + num_teams_played + GS. + NBA_titles + 
-                      num_teams_1920 + DRB, data = kt_data)
-boxcox(kt_lm6)$x[which.max(boxcox(kt_lm6)$y)]
+boxcox(lm(Actual ~ yrs_exp + num_teams_played + GS. + NBA_titles + 
+          num_teams_1920 + DRB, data = kt_data))$x[which.max(boxcox(lm(Actual ~ yrs_exp + num_teams_played + GS. + NBA_titles + 
+                                                                       num_teams_1920 + DRB, data = kt_data))$y)]
 ## power of 0.222222
 kt_lm7 <- lm(Actual^(2/9) ~ yrs_exp + num_teams_played + GS. + NBA_titles + 
                             num_teams_1920 + DRB, data = kt_data)
@@ -813,6 +821,9 @@ mean((predict(lm(formula = Actual^(31/99) ~ yrs_exp + num_teams_played + GS. +
                                             NBA_titles + num_teams_1920 + PF + DRB, 
               data = kt_data[train, ]), 
               newx = nba_x[test_x,]) - test_y)^2) # best model after initial y-transformation (lm5)
+mean((predict(lm(formula = Actual^(2/9) ~ yrs_exp + num_teams_played + PTS + GS., 
+              data = kt_data[train, ]), 
+              newx = nba_x[test_x,]) - test_y)^2) # reduced model, y-transformed, with points (lm6)
 mean((predict(lm(formula = Actual^(2/9) ~ GS. + FT + yrs_exp + num_teams_played, 
               data = kt_data[train, ]), 
               newx = nba_x[test_x,]) - test_y)^2) # further reduced model, y-transformation (lm7)
@@ -846,6 +857,19 @@ plot(kt_lm5$fitted.values, kt_lm5$residuals, main = 'Residual Plot, Fifth Model'
 abline(h = 0, col= 'red')
 vif(kt_lm5)
 PRESS(kt_lm5)
+```
+
+```{r}
+## analyzing best models
+# sixth model
+acf(kt_lm6$residuals)
+qqnorm(kt_lm6$residuals)
+qqline(kt_lm6$residuals, col = 'red')
+
+plot(kt_lm6$fitted.values, kt_lm6$residuals, main = 'Residual Plot, Fifth Model')
+abline(h = 0, col= 'red')
+vif(kt_lm6)
+PRESS(kt_lm6)
 ```
 
 ```{r}
@@ -914,6 +938,26 @@ Residual standard error: 30.25 on 454 degrees of freedom
 Multiple R-squared:  0.6191,	Adjusted R-squared:  0.6133 
 F-statistic: 105.4 on 7 and 454 DF,  p-value: < 2.2e-16
 PRESS statistic: 436560
+```
+
+# Sixth Model
+
+```
+lm(formula = Actual^(2/9) ~ yrs_exp + num_teams_played + 
+                            PTS + GS., data = kt_data)
+
+Coefficients:
+                   Estimate Std. Error t value Pr(>|t|)    
+(Intercept)      21.1058042  0.5080123  41.546  < 2e-16 ***
+yrs_exp           1.2779327  0.0887371  14.401  < 2e-16 ***
+num_teams_played -1.2568041  0.1896347  -6.627 9.64e-11 ***
+PTS               0.0060295  0.0006934   8.695  < 2e-16 ***
+GS.               4.6387842  0.8291749   5.594 3.82e-08 ***
+
+Residual standard error: 5.27 on 457 degrees of freedom
+Multiple R-squared:  0.6236,	Adjusted R-squared:  0.6203 
+F-statistic: 189.3 on 4 and 457 DF,  p-value: < 2.2e-16
+PRESS statistic: 13074.99
 ```
 
 # Seventh Model (final model)
@@ -1045,6 +1089,7 @@ outlier_pred <- exp(log(outlier_pred) / (2/9))
 
 ## create data frame with player names, actual salary, predicted salary, and residuals
 pred_results <- data.frame(Player = kt_data$Player, 
+                           Team = kt_data$team,
                            Actual_Salary = kt_data$Actual, 
                            Predicted_Salary = outlier_pred)
 
@@ -1083,19 +1128,52 @@ head(arrange(pred_results[outlier_index, ], Salary_DeltaPCT), n = 10)$String
 
 
 ```{r}
-## top ten most overpaid players, by total residual
+## top ten most overpaid players, by total residual (dollar amount)
 head(arrange(pred_results[outlier_index, ], desc(Residuals)), n = 10)$String
 ```
 
 
 ```{r}
-## top ten most underpaid players, by total residual
+## top ten most underpaid players, by total residual (dollar amount)
 head(arrange(pred_results[outlier_index, ], Residuals), n = 10)$String
 ```
 
 ```{r}
 ## all outliers
 pred_results[outlier_index, c('String')]
+```
+
+```{r}
+# over/underpay, by team
+salary_by_team <- pred_results %>% 
+                    group_by(Team) %>% 
+                    summarise(Salary_ResidualSum = sum(Residuals), 
+                              Salary_DeltaPCTMean = (sum(Residuals) / sum(Actual_Salary)) %>%  round(3), 
+                              .groups = 'drop') %>% 
+                    data.frame()
+```
+
+```{r}
+## top ten most overpaying teams, by pct
+head(arrange(salary_by_team, desc(Salary_DeltaPCTMean)), n = 10)
+```
+
+
+```{r}
+## most underpaying teams, by pct
+head(arrange(salary_by_team[which(salary_by_team$Salary_DeltaPCTMean < 0),], Salary_DeltaPCTMean), n = 10)
+```
+
+
+```{r}
+## top ten most overpaying teams, by total residual (dollar amount)
+head(arrange(salary_by_team, desc(Salary_ResidualSum)), n = 10)
+```
+
+
+```{r}
+## most underpaying teams, by total residual (dollar amount)
+head(arrange(salary_by_team[which(salary_by_team$Salary_ResidualSum < 0),], Salary_ResidualSum), n = 10)
 ```
 
 ## Finding The Most Overpaid And Underpaid Players In The NBA
