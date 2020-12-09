@@ -1,8 +1,9 @@
 ---
 title: "proj1"
-author: "Khoi Tran (kt2np)"
+author: "Khoi Tran (kt2np), Avinaash Pavuloori (akp8vy), Jordan Hiatt (jdh2e), Nick Thompson (nat3fa)"
 date: "November 16, 2020"
 output: html_document
+
 ---
 
 ### STAT 6021 Final Project: Analyzing NBA Salaries
