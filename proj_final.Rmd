@@ -1148,32 +1148,48 @@ pred_results[outlier_index, c('String')]
 salary_by_team <- pred_results %>% 
                     group_by(Team) %>% 
                     summarise(Salary_ResidualSum = sum(Residuals), 
-                              Salary_DeltaPCTMean = (sum(Residuals) / sum(Actual_Salary)) %>%  round(3), 
+                              Salary_DeltaPCTMean = (sum(Residuals) * 100 / sum(Actual_Salary)) %>%  round(3), 
                               .groups = 'drop') %>% 
                     data.frame()
+
+## string for easy output of results
+salary_by_team$String <- ifelse(salary_by_team$Salary_ResidualSum < 0, 
+                                sprintf('%s underpaid their players by $%s (%.2f%%)', 
+                                        salary_by_team$Team, 
+                                        format(abs(salary_by_team$Salary_ResidualSum), big.mark = ',', trim = TRUE), 
+                                        salary_by_team$Salary_DeltaPCT), 
+                                sprintf('%s overpaid their players by $%s (%.2f%%)', 
+                                        salary_by_team$Team, 
+                                        format(abs(salary_by_team$Salary_ResidualSum), big.mark = ',', trim = TRUE), 
+                                        salary_by_team$Salary_DeltaPCTMean))
 ```
 
 ```{r}
 ## top ten most overpaying teams, by pct
-head(arrange(salary_by_team, desc(Salary_DeltaPCTMean)), n = 10)
+head(arrange(salary_by_team, desc(Salary_DeltaPCTMean)), n = 10)$String
 ```
 
 
 ```{r}
 ## most underpaying teams, by pct
-head(arrange(salary_by_team[which(salary_by_team$Salary_DeltaPCTMean < 0),], Salary_DeltaPCTMean), n = 10)
+head(arrange(salary_by_team[which(salary_by_team$Salary_DeltaPCTMean < 0),], Salary_DeltaPCTMean), n = 10)$String
 ```
 
 
 ```{r}
 ## top ten most overpaying teams, by total residual (dollar amount)
-head(arrange(salary_by_team, desc(Salary_ResidualSum)), n = 10)
+head(arrange(salary_by_team, desc(Salary_ResidualSum)), n = 10)$String
 ```
 
 
 ```{r}
 ## most underpaying teams, by total residual (dollar amount)
-head(arrange(salary_by_team[which(salary_by_team$Salary_ResidualSum < 0),], Salary_ResidualSum), n = 10)
+head(arrange(salary_by_team[which(salary_by_team$Salary_ResidualSum < 0),], Salary_ResidualSum), n = 10)$String
+```
+
+```{r}
+## all outliers
+salary_by_team$String
 ```
 
 ## Finding The Most Overpaid And Underpaid Players In The NBA
